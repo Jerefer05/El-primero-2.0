@@ -18,23 +18,23 @@ html {
 
 /* Color de respaldo para que el body pinte su propio fondo en toda la altura de la página */
 html {
-  background-color: #5b84bd;
+  background-color: #7b9bd0;
 }
 
-/* Fondo de cielo: azul suave arriba, claro en el medio y más profundo abajo */
+/* Fondo de cielo: claro arriba y se va oscureciendo tenuemente a medida que se baja */
 body {
-  background-color: #8fb0de;
+  background-color: #a2bde6;
   background-image:
-    radial-gradient(ellipse 70% 14% at 15% 12%, rgba(255, 255, 255, 0.28), transparent 70%),
-    radial-gradient(ellipse 60% 12% at 85% 32%, rgba(255, 255, 255, 0.24), transparent 70%),
-    radial-gradient(ellipse 65% 12% at 25% 58%, rgba(255, 255, 255, 0.22), transparent 70%),
+    radial-gradient(ellipse 70% 14% at 15% 10%, rgba(255, 255, 255, 0.35), transparent 70%),
+    radial-gradient(ellipse 60% 12% at 85% 30%, rgba(255, 255, 255, 0.25), transparent 70%),
+    radial-gradient(ellipse 65% 12% at 25% 55%, rgba(255, 255, 255, 0.18), transparent 70%),
     linear-gradient(
       180deg,
-      #6f95cf 0%,
-      #8fb0de 25%,
-      #b9c9e8 50%,
-      #9db6df 72%,
-      #5b84bd 100%
+      #bcd3f2 0%,
+      #b0c8ec 25%,
+      #a2bde6 50%,
+      #8fadde 75%,
+      #7b9bd0 100%
     );
   background-repeat: no-repeat;
   color: #2e2e2e;
