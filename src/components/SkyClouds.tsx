@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Sun from "@/components/Sun";
 
 // Nubes decorativas del fondo: formas suaves con bordes esponjosos (filtro SVG),
 // repartidas a lo largo de la página detrás del contenido. Con el mouse cerca,
@@ -152,6 +153,9 @@ export default function SkyClouds() {
           {softFilter("nube-brillo", 9, 70, 5)}
         </defs>
       </svg>
+
+      {/* El sol va antes que las nubes para que quede detrás de ellas */}
+      <Sun />
 
       {clouds.map((cloud, index) => (
         <div
