@@ -1,0 +1,79 @@
+@import "tailwindcss";
+@config "../../tailwind.config.ts";
+
+@theme {
+  --color-primary: #6e6353;
+  --color-text: #2e2e2e;
+  --color-neutral: #8a887e;
+  --color-background: #d7cbbe;
+  --font-sans: var(--font-quicksand);
+  --font-serif: var(--font-prata);
+  --shadow-soft: 0 10px 40px rgba(110, 99, 83, 0.08);
+  --shadow-whisper: 0 4px 20px rgba(110, 99, 83, 0.06);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Color de respaldo para que el body pinte su propio fondo en toda la altura de la página */
+html {
+  background-color: #5b84bd;
+}
+
+/* Fondo de cielo: azul suave arriba, claro en el medio y más profundo abajo */
+body {
+  background-color: #8fb0de;
+  background-image:
+    radial-gradient(ellipse 70% 14% at 15% 12%, rgba(255, 255, 255, 0.28), transparent 70%),
+    radial-gradient(ellipse 60% 12% at 85% 32%, rgba(255, 255, 255, 0.24), transparent 70%),
+    radial-gradient(ellipse 65% 12% at 25% 58%, rgba(255, 255, 255, 0.22), transparent 70%),
+    linear-gradient(
+      180deg,
+      #6f95cf 0%,
+      #8fb0de 25%,
+      #b9c9e8 50%,
+      #9db6df 72%,
+      #5b84bd 100%
+    );
+  background-repeat: no-repeat;
+  color: #2e2e2e;
+  font-family: var(--font-quicksand), sans-serif;
+}
+
+::selection {
+  background: color-mix(in srgb, #6e6353 28%, transparent);
+  color: #2e2e2e;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.7s ease forwards;
+}
+
+/* Títulos principales: delineado/sombra muy sutil para que resalten sobre el beige */
+.title-soft {
+  color: #2e2e2e;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55),
+    0 0 14px rgba(255, 255, 255, 0.6);
+}
+
+/* Variante para el título sobre la imagen del hero (texto blanco, sombra oscura sutil) */
+.title-hero {
+  color: #ffffff;
+  text-shadow:
+    0 1px 2px rgba(46, 46, 46, 0.45),
+    0 0 1px rgba(46, 46, 46, 0.6),
+    0 4px 18px rgba(46, 46, 46, 0.35);
+}
