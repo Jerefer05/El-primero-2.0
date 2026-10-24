@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { formatPrice } from "@/data/products";
 import { STORE, whatsappLink } from "@/data/config";
 import { useCart } from "@/context/CartContext";
@@ -166,20 +167,23 @@ export default function CartSidebar() {
               Finalizar Compra
             </button>
           ) : (
-            <a
-              href={whatsappLink(buildMessage())}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-5 block w-full rounded-full border border-[#6E6353] bg-[#6E6353] px-6 py-3 text-center text-sm tracking-[0.16em] text-[#f4eee6] uppercase transition hover:bg-transparent hover:text-[#6E6353]"
-            >
-              Finalizar por WhatsApp
-            </a>
-          )}
-          {items.length > 0 && (
-            <p className="mt-3 text-center text-xs text-[#2E2E2E]/60">
-              Te abrimos WhatsApp con tu pedido armado para coordinar el pago y
-              el envío.
-            </p>
+            <>
+              <Link
+                href="/checkout"
+                onClick={closeCart}
+                className="mt-5 block w-full rounded-full border border-[#6E6353] bg-[#6E6353] px-6 py-3 text-center text-sm tracking-[0.16em] text-[#f4eee6] uppercase transition hover:bg-transparent hover:text-[#6E6353]"
+              >
+                Finalizar Compra
+              </Link>
+              <a
+                href={whatsappLink(buildMessage())}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 block text-center text-xs text-[#2E2E2E]/60 underline-offset-2 hover:underline"
+              >
+                ¿Preferís consultar antes? Escribinos por WhatsApp
+              </a>
+            </>
           )}
         </div>
       </aside>
