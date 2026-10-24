@@ -1,33 +1,9 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { createPublicClient } from "@/lib/supabase";
-import { featuredProducts, formatPrice, type Product } from "@/data/products";
+import { featuredProducts, type Product } from "@/data/products";
+import { PRODUCT_COLUMNS, rowToProduct, type ProductRow } from "@/data/productRow";
 
 export const PRODUCTS_TAG = "products";
-
-export type ProductRow = {
-  id: string;
-  name: string;
-  price: number;
-  image: string;
-  alt: string;
-  category: Product["category"];
-  in_stock: boolean;
-  stock: number | null;
-  position: number;
-};
-
-export function rowToProduct(row: ProductRow): Product {
-  return {
-    id: row.id,
-    name: row.name,
-    price: row.price,
-    priceLabel: formatPrice(row.price),
-    image: row.image,
-    alt: row.alt || row.name,
-    category: row.category,
-    inStock: row.in_stock && row.stock !== 0,
-  };
-}
 
 // Catálogo de la tienda, cargado desde el almacén (Supabase).
 // Se guarda en caché y se renueva apenas el dueño guarda un cambio.
@@ -38,7 +14,7 @@ export async function getProducts(): Promise<Product[]> {
 
   const { data, error } = await createPublicClient()
     .from("products")
-    .select("id, name, price, image, alt, category, in_stock, stock, position")
+    .select(PRODUCT_COLUMNS)
     .order("position")
     .order("name");
 
@@ -48,4 +24,12 @@ export async function getProducts(): Promise<Product[]> {
     return featuredProducts;
   }
   return (data as ProductRow[]).map(rowToProduct);
+}
+
+// Para el servidor (por ejemplo, recalcular precios de un pedido).
+// Devuelve los productos en el mismo orden que los ids; los que no existen se omiten.
+export async function getProductsByIds(ids: string[]): Promise<Product[]> {
+  const products = await getProducts();
+  const byId = new Map(products.map((product) => [product.id, product]));
+  return ids.flatMap((id) => byId.get(id) ?? []);
 }

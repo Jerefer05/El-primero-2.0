@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { getBrowserClient, PRODUCT_IMAGES_BUCKET } from "@/lib/supabase";
 import { formatPrice, type Product } from "@/data/products";
-import type { ProductRow } from "@/data/store";
+import { PRODUCT_COLUMNS, type ProductRow } from "@/data/productRow";
 import { refreshStore } from "@/app/almacen/actions";
 
 const CATEGORIES: { value: Product["category"]; label: string }[] = [
@@ -119,6 +119,7 @@ type Draft = {
   image: string;
   alt: string;
   position: string;
+  features: { label: string; value: string }[];
 };
 
 function emptyDraft(nextPosition: number): Draft {
@@ -132,6 +133,7 @@ function emptyDraft(nextPosition: number): Draft {
     image: "",
     alt: "",
     position: String(nextPosition),
+    features: [],
   };
 }
 
@@ -146,13 +148,14 @@ function rowToDraft(row: ProductRow): Draft {
     image: row.image,
     alt: row.alt,
     position: String(row.position),
+    features: row.caracteristicas ?? [],
   };
 }
 
 function fetchProducts() {
   return getBrowserClient()
     .from("products")
-    .select("id, name, price, image, alt, category, in_stock, stock, position")
+    .select(PRODUCT_COLUMNS)
     .order("position")
     .order("name");
 }
@@ -415,6 +418,9 @@ function ProductForm({
       image,
       alt: draft.alt.trim() || draft.name.trim(),
       position: Number(draft.position) || 0,
+      caracteristicas: draft.features
+        .map((feature) => ({ label: feature.label.trim(), value: feature.value.trim() }))
+        .filter((feature) => feature.label && feature.value),
     });
     setSaving(false);
     if (saveError) {
@@ -506,6 +512,10 @@ function ProductForm({
             className={inputClass}
           />
         </label>
+        <FeaturesEditor
+          features={draft.features}
+          onChange={(features) => update("features", features)}
+        />
         <label className="flex items-center gap-3 text-sm sm:col-span-2">
           <input
             type="checkbox"
@@ -526,5 +536,58 @@ function ProductForm({
         </div>
       </div>
     </form>
+  );
+}
+
+type Feature = { label: string; value: string };
+
+function FeaturesEditor({
+  features,
+  onChange,
+}: {
+  features: Feature[];
+  onChange: (features: Feature[]) => void;
+}) {
+  function change(index: number, key: keyof Feature, value: string) {
+    onChange(features.map((feature, i) => (i === index ? { ...feature, [key]: value } : feature)));
+  }
+
+  return (
+    <fieldset className="space-y-2 text-sm sm:col-span-2">
+      <legend className="mb-1.5">
+        Características (aroma, tamaño, peso, cera, mecha…). Salen en el comprobante del pedido.
+      </legend>
+      {features.map((feature, index) => (
+        <div key={index} className="flex gap-2">
+          <input
+            placeholder="Ej: Aroma"
+            value={feature.label}
+            onChange={(event) => change(index, "label", event.target.value)}
+            className={`${inputClass} w-2/5`}
+          />
+          <input
+            placeholder="Ej: Vainilla"
+            value={feature.value}
+            onChange={(event) => change(index, "value", event.target.value)}
+            className={inputClass}
+          />
+          <button
+            type="button"
+            aria-label="Quitar característica"
+            onClick={() => onChange(features.filter((_, i) => i !== index))}
+            className="px-2 text-lg text-[#6E6353]"
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => onChange([...features, { label: "", value: "" }])}
+        className={secondaryButton}
+      >
+        Agregar característica
+      </button>
+    </fieldset>
   );
 }
