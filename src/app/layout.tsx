@@ -4,6 +4,7 @@ import { CartProvider } from "@/context/CartContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import CartSidebar from "@/components/CartSidebar";
+import SkyClouds from "@/components/SkyClouds";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import AddedToCartModal from "@/components/AddedToCartModal";
 import DiscountPopup from "@/components/DiscountPopup";
@@ -43,7 +44,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="es"
       className={`${prata.variable} ${quicksand.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col font-sans text-[#2E2E2E]">
+      <body className="relative isolate flex min-h-full flex-col font-sans text-[#2E2E2E]">
+        <SkyClouds />
         <CartProvider>
           <Navbar />
           <main className="flex-1">{children}</main>
