@@ -1,5 +1,5 @@
 import Link from "next/link";
-import HeroCarousel from "@/components/HeroCarousel";
+import Hero from "@/components/Hero";
 import ProductCard from "@/components/ProductCard";
 import { featuredProducts } from "@/data/products";
 
@@ -25,7 +25,7 @@ export default function Home() {
   return (
     <div>
       {/* 1. Hero */}
-      <HeroCarousel />
+      <Hero />
 
       {/* 2. Catálogo destacado */}
       <section
