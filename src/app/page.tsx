@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Hero from "@/components/Hero";
 import ProductCard from "@/components/ProductCard";
-import { featuredProducts } from "@/data/products";
+import { getProducts } from "@/data/store";
 
 const values = [
   {
@@ -21,7 +21,9 @@ const values = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const products = await getProducts();
+
   return (
     <div>
       {/* 1. Hero */}
@@ -50,7 +52,7 @@ export default function Home() {
               {group.title}
             </h3>
             <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
-              {featuredProducts
+              {products
                 .filter((product) => product.category === group.category)
                 .map((product) => (
                   <ProductCard key={product.id} product={product} />

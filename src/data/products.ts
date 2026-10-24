@@ -7,8 +7,11 @@ export type Product = {
   alt: string;
   category: "velas" | "recarga";
   inStock?: boolean; // false = se muestra como "Agotado"
+  features?: { label: string; value: string }[];
 };
 
+// Los productos ahora se cargan desde el almacén (/almacen).
+// Esta lista queda como respaldo por si la base no responde.
 export const featuredProducts: Product[] = [
   {
     id: "pecera-grande",
