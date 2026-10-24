@@ -77,3 +77,22 @@ body {
     0 0 1px rgba(46, 46, 46, 0.6),
     0 4px 18px rgba(46, 46, 46, 0.35);
 }
+
+/* Al imprimir o guardar el comprobante como PDF, solo queda el comprobante */
+@media print {
+  @page {
+    margin: 16mm;
+  }
+
+  body > header,
+  body > footer,
+  main > header,
+  main > footer,
+  .fixed {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+}

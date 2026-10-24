@@ -9,6 +9,17 @@ export const STORE = {
   freeShippingFrom: 50000,
   cashDiscount: 0.15, // 15% OFF en efectivo
   hours: "Lunes a viernes, de 10:00 a 20:00",
+  // Datos para que el cliente pague por transferencia (se muestran en el comprobante).
+  transfer: {
+    alias: "",
+    cbu: "",
+    holder: "", // titular de la cuenta
+  },
+  // Cupón que se regala en el comprobante para la próxima compra.
+  nextPurchaseCoupon: {
+    code: "VUELVE10",
+    percent: 0.1, // 10% OFF
+  },
 };
 
 export function whatsappLink(message: string) {
