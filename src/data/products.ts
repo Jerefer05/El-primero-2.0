@@ -33,7 +33,7 @@ export const featuredProducts: Product[] = [
   },
   {
     id: "esmeralda",
-    name: "Vela Esmeralda",
+    name: "Vela Esmerilada",
     priceLabel: "$12.150",
     price: 12150,
     image: "/productos/vela-esmerilada.jpg",
