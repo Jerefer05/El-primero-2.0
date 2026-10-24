@@ -26,7 +26,7 @@ const quicksand = Quicksand({
 export const metadata: Metadata = {
   title: "Tesoria | Velas artesanales y Home Deco",
   description:
-    "Ilumina tu hogar sin límites con velas recargables artesanales. Home deco, añade nostálgico.",
+    "Ilumina tu hogar sin límites con velas recargables artesanales. Home deco, arte nostálgico.",
   openGraph: {
     title: "Tesoria | Velas artesanales y Home Deco",
     description:

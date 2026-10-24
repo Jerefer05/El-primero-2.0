@@ -45,7 +45,7 @@ export default function HeroCarousel() {
         </h1>
         <p className="mt-7 max-w-2xl text-base leading-8 text-white/90 sm:text-lg">
           Ilumina tu hogar sin límites con nuestras velas recargables. Home deco,
-          añade nostálgico.
+          arte nostálgico.
         </p>
         <Link
           href="/#catalogo"
