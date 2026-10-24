@@ -1,3 +1,4 @@
+import CurrentYear from "@/components/CurrentYear";
 import { STORE, whatsappLink } from "@/data/config";
 
 export default function Footer() {
@@ -75,7 +76,7 @@ export default function Footer() {
         </div>
       </div>
       <p className="border-t border-white/40 px-5 py-5 text-center text-xs text-[#2E2E2E]/60">
-        © {new Date().getFullYear()} {STORE.name}. Todos los derechos
+        © <CurrentYear /> {STORE.name}. Todos los derechos
         reservados.
       </p>
     </footer>
