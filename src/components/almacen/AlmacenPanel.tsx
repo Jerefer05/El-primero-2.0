@@ -167,6 +167,7 @@ function Inventory({ session }: { session: Session }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [notice, setNotice] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const applyProducts = useCallback(
     ({ data, error }: { data: unknown; error: unknown }) => {
@@ -259,11 +260,27 @@ function Inventory({ session }: { session: Session }) {
           >
             Agregar producto
           </button>
+          <button
+            type="button"
+            onClick={() => setChangingPassword((open) => !open)}
+            className={secondaryButton}
+          >
+            Contraseña
+          </button>
           <button type="button" onClick={signOut} className={secondaryButton}>
             Salir
           </button>
         </div>
       </div>
+
+      {changingPassword && (
+        <PasswordForm
+          onDone={(message) => {
+            setChangingPassword(false);
+            setNotice(message);
+          }}
+        />
+      )}
 
       {notice && (
         <p className="rounded-xl bg-white/60 px-4 py-3 text-sm text-[#2E2E2E]">
@@ -589,5 +606,44 @@ function FeaturesEditor({
         Agregar característica
       </button>
     </fieldset>
+  );
+}
+
+function PasswordForm({ onDone }: { onDone: (message: string) => void }) {
+  const supabase = getBrowserClient();
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (password.length < 8) return setError("Usá al menos 8 caracteres.");
+    setSaving(true);
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    setSaving(false);
+    if (updateError) return setError("No se pudo cambiar la contraseña. Probá con otra.");
+    onDone("Listo, la contraseña se cambió. La próxima vez entrá con la nueva.");
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-wrap items-end gap-3 rounded-2xl border border-white/50 bg-white/50 px-6 py-5 shadow-whisper backdrop-blur-sm"
+    >
+      <label className="block min-w-60 flex-1 space-y-1.5 text-sm">
+        <span>Nueva contraseña</span>
+        <input
+          type="password"
+          autoComplete="new-password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          className={inputClass}
+        />
+      </label>
+      <button type="submit" disabled={saving} className={primaryButton}>
+        {saving ? "Guardando…" : "Cambiar"}
+      </button>
+      {error && <p className="w-full text-sm text-red-700">{error}</p>}
+    </form>
   );
 }
