@@ -9,6 +9,8 @@ export type Product = {
   inStock?: boolean; // false = se muestra como "Agotado"
 };
 
+// Los productos ahora se cargan desde el almacén (/almacen).
+// Esta lista queda como respaldo por si la base no responde.
 export const featuredProducts: Product[] = [
   {
     id: "pecera-grande",
