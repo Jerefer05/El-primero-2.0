@@ -132,13 +132,14 @@ export default function Sun() {
 
   if (!position) return null;
 
-  // Más nubes = sol más tenue y difuso; con lluvia casi no se ve
-  const visibility = weather.rain ? 0.18 : 1 - (Math.min(100, weather.cloudCover) / 100) * 0.65;
-  const blur = weather.rain ? 10 : (weather.cloudCover / 100) * 6;
+  // Más nubes = sol más tenue y difuso; con lluvia se ve apagado, pero siempre se distingue
+  const cloudiness = Math.min(100, Math.max(0, weather.cloudCover)) / 100;
+  const visibility = weather.rain ? 0.65 : 1 - cloudiness * 0.3;
+  const blur = weather.rain ? 4 : cloudiness * 3;
   // Cerca del horizonte (amanecer o atardecer) toma un tono más cálido
   const warm = Math.max(0, Math.min(1, 1 - position.elevation / 12));
-  const core = warm > 0.5 ? "#ffd9a0" : "#fff6d6";
-  const glow = `rgba(255, ${Math.round(214 - warm * 70)}, ${Math.round(120 - warm * 60)}, 0.55)`;
+  const core = warm > 0.5 ? "#ffc978" : "#ffe58a";
+  const glow = `rgba(255, ${Math.round(205 - warm * 70)}, ${Math.round(90 - warm * 50)}, 0.7)`;
 
   return (
     <div
@@ -150,7 +151,7 @@ export default function Sun() {
         aspectRatio: "1",
         opacity: visibility,
         filter: `blur(${blur}px)`,
-        background: `radial-gradient(circle, #ffffff 0%, ${core} 45%, ${glow} 70%, transparent 72%)`,
+        background: `radial-gradient(circle, #fffbea 0%, ${core} 40%, ${glow} 70%, transparent 72%)`,
         boxShadow: `0 0 60px 20px ${glow}, 0 0 160px 60px rgba(255, 240, 200, 0.35)`,
       }}
     />
