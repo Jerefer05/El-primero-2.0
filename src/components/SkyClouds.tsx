@@ -1,5 +1,10 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+
 // Nubes decorativas del fondo: formas suaves con bordes esponjosos (filtro SVG),
-// repartidas a lo largo de la página detrás del contenido.
+// repartidas a lo largo de la página detrás del contenido. Con el mouse cerca,
+// se corren suavemente y después vuelven a su lugar.
 
 type Cloud = {
   top: string;
@@ -10,6 +15,11 @@ type Cloud = {
 };
 
 const clouds: Cloud[] = [
+  // En la portada (medido en alto de pantalla para que no dependa del largo de la página)
+  { top: "6vh", left: "-12%", width: "clamp(360px, 52vw, 860px)", opacity: 0.9 },
+  { top: "14vh", left: "62%", width: "clamp(320px, 44vw, 760px)", opacity: 0.8, flip: true },
+  { top: "62vh", left: "30%", width: "clamp(380px, 60vw, 980px)", opacity: 0.85 },
+  // A lo largo del resto de la página
   { top: "17%", left: "-18%", width: "clamp(380px, 62vw, 980px)", opacity: 0.95 },
   { top: "27%", left: "58%", width: "clamp(340px, 54vw, 860px)", opacity: 0.85, flip: true },
   { top: "43%", left: "-22%", width: "clamp(360px, 58vw, 920px)", opacity: 0.75 },
@@ -52,7 +62,84 @@ function softFilter(id: string, seed: number, scale: number, blur: number) {
   );
 }
 
+const PUSH_RADIUS = 320; // px alrededor del mouse donde las nubes reaccionan
+const MAX_PUSH = 100; // px máximos que se corre una nube
+const EASE = 0.06; // suavidad del movimiento (más chico = más lento)
+
 export default function SkyClouds() {
+  const cloudRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  useEffect(() => {
+    // Solo en compu con mouse y si la persona no pidió menos movimiento
+    const canHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!canHover || reducedMotion) return;
+
+    const offsets = clouds.map(() => ({ x: 0, y: 0 }));
+    let pointer: { x: number; y: number } | null = null;
+    let frameId = 0;
+
+    const step = () => {
+      let moving = false;
+
+      cloudRefs.current.forEach((el, index) => {
+        if (!el) return;
+        const offset = offsets[index];
+        const rect = el.getBoundingClientRect();
+        // Centro de la nube en su lugar original (sin el corrimiento actual)
+        const cx = rect.left + rect.width / 2 - offset.x;
+        const cy = rect.top + rect.height / 2 - offset.y;
+
+        let targetX = 0;
+        let targetY = 0;
+        if (pointer) {
+          const dx = cx - pointer.x;
+          const dy = cy - pointer.y;
+          const distance = Math.hypot(dx, dy) || 1;
+          const reach = PUSH_RADIUS + rect.width * 0.25;
+          if (distance < reach) {
+            const strength = (1 - distance / reach) ** 2 * MAX_PUSH;
+            targetX = (dx / distance) * strength;
+            targetY = (dy / distance) * strength * 0.6;
+          }
+        }
+
+        offset.x += (targetX - offset.x) * EASE;
+        offset.y += (targetY - offset.y) * EASE;
+        if (Math.abs(targetX - offset.x) > 0.1 || Math.abs(targetY - offset.y) > 0.1) {
+          moving = true;
+        }
+        el.style.transform = `translate3d(${offset.x}px, ${offset.y}px, 0)`;
+      });
+
+      // Cuando todo quedó quieto, se frena la animación hasta el próximo movimiento
+      frameId = moving ? window.requestAnimationFrame(step) : 0;
+    };
+
+    const start = () => {
+      if (!frameId) frameId = window.requestAnimationFrame(step);
+    };
+    const onMove = (event: PointerEvent) => {
+      pointer = { x: event.clientX, y: event.clientY };
+      start();
+    };
+    const onLeave = () => {
+      pointer = null;
+      start();
+    };
+
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("scroll", start, { passive: true });
+    document.documentElement.addEventListener("pointerleave", onLeave);
+
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("scroll", start);
+      document.documentElement.removeEventListener("pointerleave", onLeave);
+      window.cancelAnimationFrame(frameId);
+    };
+  }, []);
+
   return (
     <div
       aria-hidden
@@ -67,22 +154,29 @@ export default function SkyClouds() {
       </svg>
 
       {clouds.map((cloud, index) => (
-        <svg
+        <div
           key={index}
-          viewBox="-40 -40 540 300"
-          className="absolute h-auto"
+          ref={(el) => {
+            cloudRefs.current[index] = el;
+          }}
+          className="absolute will-change-transform"
           style={{
             top: cloud.top,
             left: cloud.left,
             width: cloud.width,
             opacity: cloud.opacity,
-            transform: cloud.flip ? "scaleX(-1)" : undefined,
           }}
         >
-          <CloudShape fill="rgba(255, 255, 255, 0.55)" filter="nube-fondo" />
-          <CloudShape fill="#c3d0e8" filter="nube-sombra" dy={14} />
-          <CloudShape fill="#ffffff" filter="nube-brillo" dy={-6} />
-        </svg>
+          <svg
+            viewBox="-40 -40 540 300"
+            className="block h-auto w-full"
+            style={{ transform: cloud.flip ? "scaleX(-1)" : undefined }}
+          >
+            <CloudShape fill="rgba(255, 255, 255, 0.55)" filter="nube-fondo" />
+            <CloudShape fill="#c3d0e8" filter="nube-sombra" dy={14} />
+            <CloudShape fill="#ffffff" filter="nube-brillo" dy={-6} />
+          </svg>
+        </div>
       ))}
     </div>
   );

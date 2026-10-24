@@ -23,17 +23,17 @@ html {
 
 /* Fondo de cielo: claro arriba y se va oscureciendo tenuemente a medida que se baja */
 body {
-  background-color: #b4caeb;
+  background-color: #a2bde6;
   background-image:
     radial-gradient(ellipse 70% 14% at 15% 10%, rgba(255, 255, 255, 0.35), transparent 70%),
     radial-gradient(ellipse 60% 12% at 85% 30%, rgba(255, 255, 255, 0.25), transparent 70%),
     radial-gradient(ellipse 65% 12% at 25% 55%, rgba(255, 255, 255, 0.18), transparent 70%),
     linear-gradient(
       180deg,
-      #dce8f7 0%,
-      #c6d8f1 25%,
-      #b0c7ea 50%,
-      #97b4e0 75%,
+      #bcd3f2 0%,
+      #b0c8ec 25%,
+      #a2bde6 50%,
+      #8fadde 75%,
       #7b9bd0 100%
     );
   background-repeat: no-repeat;

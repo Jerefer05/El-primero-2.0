@@ -82,21 +82,6 @@ export const featuredProducts: Product[] = [
   },
 ];
 
-export const heroSlides = [
-  {
-    src: "https://images.unsplash.com/photo-1602607688737-cef3c33bd608?w=1920&q=80",
-    alt: "Vela pecera artesanal",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1603006905003-be475563bc59?w=1920&q=80",
-    alt: "Velas triangulares encendidas",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1572726729207-a78d6feb18d7?w=1920&q=80",
-    alt: "Vela esmeralda en vidrio",
-  },
-];
-
 export function formatPrice(value: number) {
   return `$${value.toLocaleString("es-AR")}`;
 }
