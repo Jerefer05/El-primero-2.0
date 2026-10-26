@@ -6,18 +6,23 @@ import { getBrowserClient, PRODUCT_IMAGES_BUCKET } from "@/lib/supabase";
 import { formatPrice, type Product } from "@/data/products";
 import { PRODUCT_COLUMNS, type ProductRow } from "@/data/productRow";
 import { refreshStore } from "@/app/almacen/actions";
+import OrdersPanel from "@/components/almacen/OrdersPanel";
+import SettingsPanel from "@/components/almacen/SettingsPanel";
+import { inputClass, primaryButton, secondaryButton } from "@/components/almacen/styles";
 
 const CATEGORIES: { value: Product["category"]; label: string }[] = [
   { value: "velas", label: "Velas" },
   { value: "recarga", label: "Cera de recarga" },
 ];
 
-const inputClass =
-  "w-full rounded-xl border border-[#6E6353]/30 bg-white/70 px-4 py-2.5 text-sm text-[#2E2E2E] outline-none transition focus:border-[#6E6353]";
-const primaryButton =
-  "rounded-full bg-[#6E6353] px-6 py-2.5 text-xs tracking-[0.16em] text-[#f4eee6] uppercase transition hover:bg-[#2E2E2E] disabled:cursor-not-allowed disabled:opacity-50";
-const secondaryButton =
-  "rounded-full border border-[#6E6353] px-5 py-2 text-xs tracking-[0.16em] text-[#6E6353] uppercase transition hover:bg-[#6E6353] hover:text-[#f4eee6] disabled:cursor-not-allowed disabled:opacity-50";
+const TABS = [
+  { id: "pedidos", label: "Pedidos" },
+  { id: "productos", label: "Productos" },
+  { id: "textos", label: "Textos y aviso" },
+  { id: "contacto", label: "Pago y contacto" },
+] as const;
+
+type TabId = (typeof TABS)[number]["id"];
 
 function slugify(text: string) {
   return text
@@ -50,7 +55,108 @@ export default function AlmacenPanel() {
   if (!session) {
     return <LoginForm />;
   }
-  return <Inventory session={session} />;
+  return <AdminArea session={session} />;
+}
+
+// Barra de arriba (cuenta, contraseña, salir) y las pestañas del panel
+function AdminArea({ session }: { session: Session }) {
+  const supabase = getBrowserClient();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [tab, setTab] = useState<TabId>("pedidos");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    supabase
+      .from("admins")
+      .select("email")
+      .eq("email", session.user.email ?? "")
+      .maybeSingle()
+      .then(({ data }) => setIsAdmin(Boolean(data)));
+  }, [supabase, session]);
+
+  const signOut = () => supabase.auth.signOut();
+
+  if (isAdmin === null) {
+    return <p className="text-center text-sm text-[#2E2E2E]/70">Cargando…</p>;
+  }
+  if (!isAdmin) {
+    return (
+      <div className="space-y-4 text-center text-sm">
+        <p>
+          La cuenta {session.user.email} no tiene permiso para editar el
+          almacén.
+        </p>
+        <button type="button" onClick={signOut} className={secondaryButton}>
+          Salir
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-[#2E2E2E]/75">{session.user.email}</p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => setChangingPassword((open) => !open)}
+            className={secondaryButton}
+          >
+            Contraseña
+          </button>
+          <button type="button" onClick={signOut} className={secondaryButton}>
+            Salir
+          </button>
+        </div>
+      </div>
+
+      {changingPassword && (
+        <PasswordForm
+          onDone={(message) => {
+            setChangingPassword(false);
+            setNotice(message);
+          }}
+        />
+      )}
+
+      {notice && (
+        <p className="rounded-xl bg-white/60 px-4 py-3 text-sm text-[#2E2E2E]">
+          {notice}
+        </p>
+      )}
+
+      <nav
+        aria-label="Secciones del almacén"
+        className="flex gap-2 overflow-x-auto rounded-full border border-white/50 bg-white/40 p-1.5 shadow-whisper backdrop-blur-sm"
+      >
+        {TABS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            aria-current={tab === item.id ? "page" : undefined}
+            onClick={() => {
+              setNotice("");
+              setTab(item.id);
+            }}
+            className={`flex-1 rounded-full px-4 py-2 text-xs tracking-[0.14em] whitespace-nowrap uppercase transition ${
+              tab === item.id
+                ? "bg-[#6E6353] text-[#f4eee6]"
+                : "text-[#6E6353] hover:bg-white/60"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </nav>
+
+      {tab === "pedidos" && <OrdersPanel />}
+      {tab === "productos" && <Inventory session={session} />}
+      {tab === "textos" && <SettingsPanel session={session} section="textos" />}
+      {tab === "contacto" && <SettingsPanel session={session} section="contacto" />}
+    </div>
+  );
 }
 
 function LoginForm() {
@@ -120,6 +226,7 @@ type Draft = {
   alt: string;
   position: string;
   features: { label: string; value: string }[];
+  active: boolean;
 };
 
 function emptyDraft(nextPosition: number): Draft {
@@ -134,6 +241,7 @@ function emptyDraft(nextPosition: number): Draft {
     alt: "",
     position: String(nextPosition),
     features: [],
+    active: true,
   };
 }
 
@@ -149,6 +257,7 @@ function rowToDraft(row: ProductRow): Draft {
     alt: row.alt,
     position: String(row.position),
     features: row.caracteristicas ?? [],
+    active: row.active,
   };
 }
 
@@ -163,11 +272,9 @@ function fetchProducts() {
 function Inventory({ session }: { session: Session }) {
   const supabase = getBrowserClient();
   const [rows, setRows] = useState<ProductRow[]>([]);
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [notice, setNotice] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const [changingPassword, setChangingPassword] = useState(false);
 
   const applyProducts = useCallback(
     ({ data, error }: { data: unknown; error: unknown }) => {
@@ -186,14 +293,8 @@ function Inventory({ session }: { session: Session }) {
   );
 
   useEffect(() => {
-    supabase
-      .from("admins")
-      .select("email")
-      .eq("email", session.user.email ?? "")
-      .maybeSingle()
-      .then(({ data }) => setIsAdmin(Boolean(data)));
     fetchProducts().then(applyProducts);
-  }, [supabase, session, applyProducts]);
+  }, [applyProducts]);
 
   async function afterChange(message: string) {
     await loadProducts();
@@ -215,6 +316,22 @@ function Inventory({ session }: { session: Session }) {
     );
   }
 
+  async function toggleActive(row: ProductRow) {
+    const { error } = await supabase
+      .from("products")
+      .update({ active: !row.active })
+      .eq("id", row.id);
+    if (error) {
+      setNotice("No se pudo guardar el cambio.");
+      return;
+    }
+    await afterChange(
+      row.active
+        ? `${row.name} quedó pausado: ya no se ve en la tienda.`
+        : `${row.name} vuelve a verse en la tienda.`,
+    );
+  }
+
   async function deleteProduct(row: ProductRow) {
     const { error } = await supabase.from("products").delete().eq("id", row.id);
     setConfirmDelete(null);
@@ -225,29 +342,13 @@ function Inventory({ session }: { session: Session }) {
     await afterChange(`${row.name} se borró de la tienda.`);
   }
 
-  const signOut = () => supabase.auth.signOut();
-
-  if (isAdmin === false) {
-    return (
-      <div className="space-y-4 text-center text-sm">
-        <p>
-          La cuenta {session.user.email} no tiene permiso para editar el
-          almacén.
-        </p>
-        <button type="button" onClick={signOut} className={secondaryButton}>
-          Salir
-        </button>
-      </div>
-    );
-  }
-
   const nextPosition = rows.reduce((max, row) => Math.max(max, row.position), 0) + 1;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-[#2E2E2E]/75">
-          {rows.length} productos · {session.user.email}
+          {rows.length} productos · {rows.filter((row) => !row.active).length} pausados
         </p>
         <div className="flex gap-3">
           <button
@@ -260,27 +361,8 @@ function Inventory({ session }: { session: Session }) {
           >
             Agregar producto
           </button>
-          <button
-            type="button"
-            onClick={() => setChangingPassword((open) => !open)}
-            className={secondaryButton}
-          >
-            Contraseña
-          </button>
-          <button type="button" onClick={signOut} className={secondaryButton}>
-            Salir
-          </button>
         </div>
       </div>
-
-      {changingPassword && (
-        <PasswordForm
-          onDone={(message) => {
-            setChangingPassword(false);
-            setNotice(message);
-          }}
-        />
-      )}
 
       {notice && (
         <p className="rounded-xl bg-white/60 px-4 py-3 text-sm text-[#2E2E2E]">
@@ -305,8 +387,13 @@ function Inventory({ session }: { session: Session }) {
         {rows.map((row) => {
           const soldOut = !row.in_stock || row.stock === 0;
           return (
-            <li key={row.id} className="flex flex-wrap items-center gap-4 px-5 py-4">
-              <div className="h-16 w-14 shrink-0 overflow-hidden rounded-lg bg-[#d7cbbe]">
+            <li
+              key={row.id}
+              className={`flex flex-wrap items-center gap-4 px-5 py-4 ${row.active ? "" : "bg-[#d7cbbe]/30"}`}
+            >
+              <div
+                className={`h-16 w-14 shrink-0 overflow-hidden rounded-lg bg-[#d7cbbe] ${row.active ? "" : "opacity-50"}`}
+              >
                 {row.image && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={row.image} alt="" className="h-full w-full object-cover" />
@@ -319,9 +406,13 @@ function Inventory({ session }: { session: Session }) {
                   {CATEGORIES.find((c) => c.value === row.category)?.label}
                   {row.stock !== null && ` · Stock: ${row.stock}`}
                   {soldOut && " · Agotado"}
+                  {!row.active && " · Pausado (no se ve en la tienda)"}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => toggleActive(row)} className={secondaryButton}>
+                  {row.active ? "Pausar" : "Activar"}
+                </button>
                 <button type="button" onClick={() => toggleStock(row)} className={secondaryButton}>
                   {row.in_stock ? "Marcar agotado" : "Hay stock"}
                 </button>
@@ -435,6 +526,7 @@ function ProductForm({
       image,
       alt: draft.alt.trim() || draft.name.trim(),
       position: Number(draft.position) || 0,
+      active: draft.active,
       caracteristicas: draft.features
         .map((feature) => ({ label: feature.label.trim(), value: feature.value.trim() }))
         .filter((feature) => feature.label && feature.value),
@@ -541,6 +633,15 @@ function ProductForm({
             className="h-4 w-4 accent-[#6E6353]"
           />
           Disponible para comprar (si lo destildás, se ve como “Agotado”)
+        </label>
+        <label className="flex items-center gap-3 text-sm sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={draft.active}
+            onChange={(event) => update("active", event.target.checked)}
+            className="h-4 w-4 accent-[#6E6353]"
+          />
+          Visible en la tienda (si lo destildás, queda pausado sin borrarse)
         </label>
         {error && <p className="text-sm text-red-700 sm:col-span-2">{error}</p>}
         <div className="flex gap-3 sm:col-span-2">

@@ -1,4 +1,5 @@
-// Datos de la tienda: editá acá y se actualiza en todo el sitio.
+// Datos fijos de la tienda. El WhatsApp, el alias, el horario e Instagram se
+// editan desde el almacén (/almacen); los de acá quedan como respaldo.
 export const STORE = {
   name: "Tesoria",
   // Número de WhatsApp con código de país, sin + ni espacios. Ej: "5491122334455".
@@ -22,9 +23,7 @@ export const STORE = {
   },
 };
 
-export function whatsappLink(message: string) {
-  const base = STORE.whatsappNumber
-    ? `https://wa.me/${STORE.whatsappNumber}`
-    : "https://wa.me/";
+export function whatsappLink(message: string, number = STORE.whatsappNumber) {
+  const base = number ? `https://wa.me/${number}` : "https://wa.me/";
   return `${base}?text=${encodeURIComponent(message)}`;
 }

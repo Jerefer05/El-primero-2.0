@@ -3,7 +3,7 @@
 import { formatPrice, type Product } from "@/data/products";
 
 export const PRODUCT_COLUMNS =
-  "id, name, price, image, alt, category, in_stock, stock, position, caracteristicas";
+  "id, name, price, image, alt, category, in_stock, stock, position, caracteristicas, active";
 
 export type ProductRow = {
   id: string;
@@ -16,6 +16,7 @@ export type ProductRow = {
   stock: number | null;
   position: number;
   caracteristicas: { label: string; value: string }[];
+  active: boolean; // false = pausado, no se muestra en la tienda
 };
 
 export function rowToProduct(row: ProductRow): Product {

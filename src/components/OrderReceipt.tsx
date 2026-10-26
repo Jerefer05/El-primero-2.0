@@ -3,15 +3,17 @@
 import Image from "next/image";
 import { formatPrice } from "@/data/products";
 import { STORE, whatsappLink } from "@/data/config";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 import { PAYMENT_LABELS, SHIPPING_LABELS, type Order } from "@/lib/order";
 
 export default function OrderReceipt({ order }: { order: Order }) {
   const { customer, totals } = order;
+  const { transfer, whatsappNumber } = useSiteSettings();
   const date = new Date(order.createdAt).toLocaleString("es-AR", {
     dateStyle: "long",
     timeStyle: "short",
   });
-  const hasTransferData = STORE.transfer.alias || STORE.transfer.cbu;
+  const hasTransferData = transfer.alias || transfer.cbu;
 
   const paymentMessage = [
     `¡Hola ${STORE.name}! Hice el pedido ${order.number} por ${formatPrice(totals.total)}.`,
@@ -150,26 +152,26 @@ export default function OrderReceipt({ order }: { order: Order }) {
             </h2>
             {hasTransferData ? (
               <dl className="space-y-1 text-[#2E2E2E]">
-                {STORE.transfer.alias && (
+                {transfer.alias && (
                   <div>
                     <dt className="inline text-[#2E2E2E]/60">Alias: </dt>
                     <dd className="inline font-semibold">
-                      {STORE.transfer.alias}
+                      {transfer.alias}
                     </dd>
                   </div>
                 )}
-                {STORE.transfer.cbu && (
+                {transfer.cbu && (
                   <div>
                     <dt className="inline text-[#2E2E2E]/60">CBU/CVU: </dt>
                     <dd className="inline font-semibold break-all">
-                      {STORE.transfer.cbu}
+                      {transfer.cbu}
                     </dd>
                   </div>
                 )}
-                {STORE.transfer.holder && (
+                {transfer.holder && (
                   <div>
                     <dt className="inline text-[#2E2E2E]/60">Titular: </dt>
-                    <dd className="inline">{STORE.transfer.holder}</dd>
+                    <dd className="inline">{transfer.holder}</dd>
                   </div>
                 )}
               </dl>
@@ -201,7 +203,7 @@ export default function OrderReceipt({ order }: { order: Order }) {
 
       <div className="mt-8 flex flex-col gap-3 sm:flex-row print:hidden">
         <a
-          href={whatsappLink(paymentMessage)}
+          href={whatsappLink(paymentMessage, whatsappNumber)}
           target="_blank"
           rel="noopener noreferrer"
           className="flex-1 rounded-full border border-[#6E6353] bg-[#6E6353] px-6 py-3 text-center text-sm tracking-[0.16em] text-[#f4eee6] uppercase transition hover:bg-transparent hover:text-[#6E6353]"

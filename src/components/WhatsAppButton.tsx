@@ -1,9 +1,9 @@
 import { whatsappLink } from "@/data/config";
 
-export default function WhatsAppButton() {
+export default function WhatsAppButton({ number }: { number: string }) {
   return (
     <a
-      href={whatsappLink("¡Hola Tesoria! Quería hacerles una consulta.")}
+      href={whatsappLink("¡Hola Tesoria! Quería hacerles una consulta.", number)}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Escribinos por WhatsApp"

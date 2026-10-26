@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { STORE, whatsappLink } from "@/data/config";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 
 // Tamaños disponibles según el tipo de producto
 const sizesByType: Record<string, string[]> = {
@@ -12,6 +13,7 @@ const sizesByType: Record<string, string[]> = {
 const productTypes = Object.keys(sizesByType);
 
 export default function PhotoOrderForm() {
+  const { whatsappNumber } = useSiteSettings();
   const [fileName, setFileName] = useState("");
   const [tipo, setTipo] = useState("");
   const [tamanio, setTamanio] = useState("");
@@ -34,7 +36,7 @@ export default function PhotoOrderForm() {
         ? `• Foto de referencia: ${fileName} (te la envío por este chat)`
         : "• Foto de referencia: te la envío por este chat",
     ].join("\n");
-    window.open(whatsappLink(message), "_blank", "noopener,noreferrer");
+    window.open(whatsappLink(message, whatsappNumber), "_blank", "noopener,noreferrer");
   }
 
   return (
