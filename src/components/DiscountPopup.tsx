@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 
 const SIZE = 96; // diámetro del popup en px
 const SPEED = 55; // velocidad en px/segundo (suave)
@@ -9,6 +10,8 @@ export default function DiscountPopup() {
   const [visible, setVisible] = useState(false);
   const [closed, setClosed] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
+  // En el checkout ya eligen la forma de pago: el globo solo distrae.
+  const onCheckout = usePathname().startsWith("/checkout");
 
   // Aparece después de 3 segundos
   useEffect(() => {
@@ -76,7 +79,7 @@ export default function DiscountPopup() {
     return () => window.cancelAnimationFrame(frameId);
   }, [visible, closed]);
 
-  if (!visible || closed) {
+  if (!visible || closed || onCheckout) {
     return null;
   }
 

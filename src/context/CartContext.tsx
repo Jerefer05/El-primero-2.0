@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Product } from "@/data/products";
+import { MAX_QUANTITY } from "@/lib/order";
 
 export type CartItem = Product & { quantity: number };
 
@@ -23,6 +24,7 @@ type CartContextValue = {
   removeItem: (id: string) => void;
   increaseItem: (id: string) => void;
   decreaseItem: (id: string) => void;
+  setQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
   openCart: () => void;
   closeCart: () => void;
@@ -80,13 +82,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
       },
       addItem(product) {
         const existing = items.find((item) => item.id === product.id);
-        setLastAdded({ ...product, quantity: (existing?.quantity ?? 0) + 1 });
+        setLastAdded({
+          ...product,
+          quantity: Math.min((existing?.quantity ?? 0) + 1, MAX_QUANTITY),
+        });
         setItems((current) => {
           const found = current.find((item) => item.id === product.id);
           if (found) {
             return current.map((item) =>
               item.id === product.id
-                ? { ...item, quantity: item.quantity + 1 }
+                ? {
+                    ...item,
+                    quantity: Math.min(item.quantity + 1, MAX_QUANTITY),
+                  }
                 : item,
             );
           }
@@ -99,7 +107,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
       increaseItem(id) {
         setItems((current) =>
           current.map((item) =>
-            item.id === id ? { ...item, quantity: item.quantity + 1 } : item,
+            item.id === id
+              ? { ...item, quantity: Math.min(item.quantity + 1, MAX_QUANTITY) }
+              : item,
+          ),
+        );
+      },
+      setQuantity(id, quantity) {
+        if (!Number.isFinite(quantity)) return;
+        const clamped = Math.min(
+          Math.max(Math.floor(quantity), 1),
+          MAX_QUANTITY,
+        );
+        setItems((current) =>
+          current.map((item) =>
+            item.id === id ? { ...item, quantity: clamped } : item,
           ),
         );
       },
