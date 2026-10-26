@@ -15,7 +15,7 @@ import {
 } from "@/lib/order";
 import { cardClass, inputClass, secondaryButton } from "@/components/almacen/styles";
 
-const STATUSES = [
+export const STATUSES = [
   { value: "nuevo", label: "Nuevo", color: "bg-amber-100 text-amber-900" },
   { value: "pagado", label: "Pagado", color: "bg-sky-100 text-sky-900" },
   { value: "enviado", label: "Enviado", color: "bg-violet-100 text-violet-900" },
@@ -23,9 +23,9 @@ const STATUSES = [
   { value: "cancelado", label: "Cancelado", color: "bg-stone-200 text-stone-700" },
 ] as const;
 
-type Status = (typeof STATUSES)[number]["value"];
+export type Status = (typeof STATUSES)[number]["value"];
 
-type OrderRow = {
+export type OrderRow = {
   number: string;
   created_at: string;
   status: Status;
@@ -41,15 +41,16 @@ type OrderRow = {
   lines: OrderLine[];
   totals: OrderTotals;
   total: number;
+  completed_at: string | null;
 };
 
 // "pendientes" = todo lo que todavía requiere hacer algo
 type Filter = "pendientes" | "todos" | Status;
 
-const ORDER_COLUMNS =
-  "number, created_at, status, customer_name, customer_email, customer_phone, address, city, notes, shipping, payment, coupon, lines, totals, total";
+export const ORDER_COLUMNS =
+  "number, created_at, completed_at, status, customer_name, customer_email, customer_phone, address, city, notes, shipping, payment, coupon, lines, totals, total";
 
-function statusInfo(status: Status) {
+export function statusInfo(status: Status) {
   return STATUSES.find((item) => item.value === status) ?? STATUSES[0];
 }
 

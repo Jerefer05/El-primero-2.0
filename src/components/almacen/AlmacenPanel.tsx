@@ -7,6 +7,7 @@ import { formatPrice, type Product } from "@/data/products";
 import { PRODUCT_COLUMNS, type ProductRow } from "@/data/productRow";
 import { refreshStore } from "@/app/almacen/actions";
 import OrdersPanel from "@/components/almacen/OrdersPanel";
+import HistoryPanel from "@/components/almacen/HistoryPanel";
 import SettingsPanel from "@/components/almacen/SettingsPanel";
 import { inputClass, primaryButton, secondaryButton } from "@/components/almacen/styles";
 
@@ -17,6 +18,7 @@ const CATEGORIES: { value: Product["category"]; label: string }[] = [
 
 const TABS = [
   { id: "pedidos", label: "Pedidos" },
+  { id: "historial", label: "Historial" },
   { id: "productos", label: "Productos" },
   { id: "textos", label: "Textos y aviso" },
   { id: "contacto", label: "Pago y contacto" },
@@ -152,6 +154,7 @@ function AdminArea({ session }: { session: Session }) {
       </nav>
 
       {tab === "pedidos" && <OrdersPanel />}
+      {tab === "historial" && <HistoryPanel />}
       {tab === "productos" && <Inventory session={session} />}
       {tab === "textos" && <SettingsPanel session={session} section="textos" />}
       {tab === "contacto" && <SettingsPanel session={session} section="contacto" />}
