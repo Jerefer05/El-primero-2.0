@@ -9,9 +9,12 @@ import { STORE } from "@/data/config";
 import { useCart } from "@/context/CartContext";
 import {
   computeTotals,
+  EMAIL_PATTERN,
   isValidCoupon,
   LAST_ORDER_KEY,
+  normalizeCoupon,
   PAYMENT_LABELS,
+  PHONE_PATTERN,
   SHIPPING_LABELS,
   type Order,
   type PaymentMethod,
@@ -92,7 +95,7 @@ export default function CheckoutForm() {
 
   function applyCoupon() {
     if (isValidCoupon(couponInput)) {
-      setCoupon(couponInput.trim().toUpperCase());
+      setCoupon(normalizeCoupon(couponInput));
       setCouponError("");
     } else {
       setCoupon(null);
@@ -193,6 +196,8 @@ export default function CheckoutForm() {
               required
               autoComplete="email"
               placeholder="hola@correo.com"
+              pattern={EMAIL_PATTERN}
+              title="Revisá el email, por ejemplo: hola@correo.com"
             />
             <Field
               id="phone"
@@ -201,6 +206,8 @@ export default function CheckoutForm() {
               required
               autoComplete="tel"
               placeholder="11 2233 4455"
+              pattern={PHONE_PATTERN}
+              title="Escribí tu WhatsApp con característica, por ejemplo: 11 2233 4455"
             />
           </div>
         </fieldset>

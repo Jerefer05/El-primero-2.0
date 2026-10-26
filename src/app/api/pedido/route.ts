@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { STORE } from "@/data/config";
 import { formatPrice } from "@/data/products";
 import { getProductsByIds } from "@/data/store";
@@ -5,6 +6,10 @@ import { createPublicClient } from "@/lib/supabase";
 import {
   computeTotals,
   isValidCoupon,
+  isValidEmail,
+  isValidPhone,
+  MAX_QUANTITY,
+  normalizeCoupon,
   PAYMENT_LABELS,
   SHIPPING_LABELS,
   toWhatsappNumber,
@@ -30,6 +35,9 @@ function text(value: unknown, max = 200) {
 function bad(message: string) {
   return Response.json({ error: message }, { status: 400 });
 }
+
+// Tiempo para que el aviso por Telegram reintente después de responder.
+export const maxDuration = 60;
 
 function orderNumber() {
   const now = new Date();
@@ -62,17 +70,34 @@ export async function POST(request: Request) {
   if (!customer.name || !customer.phone || !customer.email) {
     return bad("Completá nombre, email y teléfono.");
   }
+  if (!isValidEmail(customer.email)) {
+    return bad("Revisá el email, por ejemplo: hola@correo.com.");
+  }
+  if (!isValidPhone(customer.phone)) {
+    return bad(
+      "Revisá el WhatsApp: tiene que tener la característica, por ejemplo 11 2233 4455.",
+    );
+  }
   if (shipping === "envio" && (!customer.address || !customer.city)) {
     return bad("Completá la dirección de envío.");
   }
 
   // Los precios se toman del almacén, no de lo que manda el navegador.
-  const requested = (body.items ?? []).flatMap((item) => {
+  // Si el mismo producto llega dos veces, se suman las cantidades.
+  const requested: { id: string; quantity: number }[] = [];
+  for (const item of body.items ?? []) {
     const quantity = Number(item.quantity);
-    if (typeof item.id !== "string") return [];
-    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) return [];
-    return [{ id: item.id, quantity }];
-  });
+    if (typeof item.id !== "string") continue;
+    if (!Number.isInteger(quantity) || quantity < 1) continue;
+    const found = requested.find((r) => r.id === item.id);
+    if (found) found.quantity += quantity;
+    else requested.push({ id: item.id, quantity });
+  }
+  if (requested.some((item) => item.quantity > MAX_QUANTITY)) {
+    return bad(
+      `Podés pedir hasta ${MAX_QUANTITY} unidades de cada producto. Para más, escribinos por WhatsApp y lo coordinamos.`,
+    );
+  }
   const products = await getProductsByIds(requested.map((item) => item.id));
   const lines: OrderLine[] = products.flatMap((product) => {
     if (product.inStock === false) return [];
@@ -92,7 +117,9 @@ export async function POST(request: Request) {
 
   const couponCode = text(body.coupon, 30);
   const coupon =
-    couponCode && isValidCoupon(couponCode) ? couponCode.toUpperCase() : null;
+    couponCode && isValidCoupon(couponCode)
+      ? normalizeCoupon(couponCode)
+      : null;
 
   const order: Order = {
     number: orderNumber(),
@@ -109,7 +136,10 @@ export async function POST(request: Request) {
   // Los bots completan todos los campos, incluso el oculto: le respondemos
   // como si nada pero no le avisamos al dueño.
   if (!text(body.website)) {
-    await Promise.all([saveOrder(order), notifyOwner(order)]);
+    await saveOrder(order);
+    // El aviso sale después de responder: el cliente no espera a Telegram,
+    // y si Telegram está saturado hay tiempo para reintentar.
+    after(() => notifyOwner(order));
   }
 
   return Response.json({ order });
@@ -136,7 +166,10 @@ async function saveOrder(order: Order) {
   });
   if (error) {
     // El pedido igual se confirma: el cliente tiene su comprobante y el aviso por Telegram.
-    console.error(`No se pudo guardar el pedido ${order.number}:`, error.message);
+    console.error(
+      `No se pudo guardar el pedido ${order.number}:`,
+      error.message,
+    );
   }
 }
 
@@ -146,6 +179,8 @@ function escapeHtml(value: string) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 }
+
+const TELEGRAM_ATTEMPTS = 4;
 
 async function notifyOwner(order: Order) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -196,43 +231,65 @@ async function notifyOwner(order: Order) {
   const dispatchText = `¡Hola ${firstName}! Tu pedido ${order.number} de ${STORE.name} ya está en camino 🚚✨ ¡Gracias por tu compra!`;
   const contactText = `¡Hola ${firstName}! Te escribimos de ${STORE.name} por tu pedido ${order.number}.`;
 
-  try {
-    const response = await fetch(
-      `https://api.telegram.org/bot${token}/sendMessage`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: message,
-          parse_mode: "HTML",
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: "📦 Avisar despacho por WhatsApp",
-                  url: `${clientWhatsapp}?text=${encodeURIComponent(dispatchText)}`,
-                },
-              ],
-              [
-                {
-                  text: "💬 Escribirle al cliente",
-                  url: `${clientWhatsapp}?text=${encodeURIComponent(contactText)}`,
-                },
-              ],
-            ],
+  const payload = JSON.stringify({
+    chat_id: chatId,
+    text: message,
+    parse_mode: "HTML",
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: "📦 Avisar despacho por WhatsApp",
+            url: `${clientWhatsapp}?text=${encodeURIComponent(dispatchText)}`,
           },
-        }),
-      },
-    );
-    if (!response.ok) {
-      console.error(
-        `Telegram rechazó el aviso del pedido ${order.number}:`,
-        await response.text(),
+        ],
+        [
+          {
+            text: "💬 Escribirle al cliente",
+            url: `${clientWhatsapp}?text=${encodeURIComponent(contactText)}`,
+          },
+        ],
+      ],
+    },
+  });
+
+  // Telegram limita cuántos mensajes por minuto entran a un mismo chat. Si
+  // responde "esperá N segundos" (429) o falla la conexión, reintentamos.
+  // Si igual no sale, el pedido ya quedó guardado y se ve en el almacén.
+  for (let attempt = 1; attempt <= TELEGRAM_ATTEMPTS; attempt++) {
+    let waitSeconds = 2 ** attempt;
+    try {
+      const response = await fetch(
+        `https://api.telegram.org/bot${token}/sendMessage`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload,
+        },
       );
+      if (response.ok) return;
+      const result = (await response.json().catch(() => ({}))) as {
+        description?: string;
+        parameters?: { retry_after?: number };
+      };
+      const retryable = response.status === 429 || response.status >= 500;
+      if (!retryable || attempt === TELEGRAM_ATTEMPTS) {
+        console.error(
+          `Telegram rechazó el aviso del pedido ${order.number}:`,
+          response.status,
+          result.description,
+        );
+        return;
+      }
+      waitSeconds = result.parameters?.retry_after ?? waitSeconds;
+    } catch (error) {
+      if (attempt === TELEGRAM_ATTEMPTS) {
+        console.error(`No se pudo avisar el pedido ${order.number}:`, error);
+        return;
+      }
     }
-  } catch (error) {
-    // El pedido igual se confirma: el cliente tiene su comprobante.
-    console.error(`No se pudo avisar el pedido ${order.number}:`, error);
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.min(waitSeconds, 20) * 1000),
+    );
   }
 }

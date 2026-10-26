@@ -56,10 +56,32 @@ export type Order = {
   nextCoupon: { code: string; percent: number };
 };
 
+// Tope de unidades por producto en un pedido. Para más, se coordina por WhatsApp.
+export const MAX_QUANTITY = 99;
+
+// Ignora espacios y mayúsculas: "vuelve 10" vale igual que "VUELVE10".
+export function normalizeCoupon(code: string) {
+  return code.replace(/\s+/g, "").toUpperCase();
+}
+
 export function isValidCoupon(code: string) {
   return (
-    code.trim().toUpperCase() === STORE.nextPurchaseCoupon.code.toUpperCase()
+    normalizeCoupon(code) === normalizeCoupon(STORE.nextPurchaseCoupon.code)
   );
+}
+
+// Un email con algo antes y después de la @ y un punto en el dominio.
+export const EMAIL_PATTERN = "[^\\s@]+@[^\\s@]+\\.[^\\s@]+";
+
+export function isValidEmail(email: string) {
+  return new RegExp(`^${EMAIL_PATTERN}$`).test(email);
+}
+
+// Un WhatsApp necesita al menos 8 números (con o sin espacios, guiones o +54).
+export const PHONE_PATTERN = "[^0-9]*([0-9][^0-9]*){8,}";
+
+export function isValidPhone(phone: string) {
+  return phone.replace(/\D/g, "").length >= 8;
 }
 
 // El cupón y el descuento en efectivo no se suman: se aplica el mayor.

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatPrice } from "@/data/products";
 import { STORE, whatsappLink } from "@/data/config";
 import { useCart } from "@/context/CartContext";
+import { MAX_QUANTITY } from "@/lib/order";
 import { useSiteSettings } from "@/context/SiteSettingsContext";
 
 export default function CartSidebar() {
@@ -15,6 +16,7 @@ export default function CartSidebar() {
     removeItem,
     increaseItem,
     decreaseItem,
+    setQuantity,
     subtotal,
   } = useCart();
   const { whatsappNumber } = useSiteSettings();
@@ -121,13 +123,23 @@ export default function CartSidebar() {
                       >
                         −
                       </button>
-                      <span className="min-w-6 text-center text-sm text-[#2E2E2E]">
-                        {item.quantity}
-                      </span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        max={MAX_QUANTITY}
+                        value={item.quantity}
+                        onChange={(event) =>
+                          setQuantity(item.id, event.target.valueAsNumber)
+                        }
+                        aria-label={`Cantidad de ${item.name}`}
+                        className="w-10 [appearance:textfield] bg-transparent text-center text-sm text-[#2E2E2E] outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      />
                       <button
                         type="button"
                         onClick={() => increaseItem(item.id)}
                         aria-label={`Agregar una unidad de ${item.name}`}
+                        disabled={item.quantity >= MAX_QUANTITY}
                         className="h-7 w-7 text-lg leading-none text-[#6E6353]"
                       >
                         +
@@ -141,6 +153,22 @@ export default function CartSidebar() {
                       Quitar
                     </button>
                   </div>
+                  {item.quantity >= MAX_QUANTITY && (
+                    <p className="mt-2 text-xs text-[#2E2E2E]/70">
+                      Máximo {MAX_QUANTITY} por compra.{" "}
+                      <a
+                        href={whatsappLink(
+                          `¡Hola ${STORE.name}! Quiero más de ${MAX_QUANTITY} unidades de ${item.name}.`,
+                          whatsappNumber,
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline underline-offset-2"
+                      >
+                        ¿Necesitás más? Escribinos
+                      </a>
+                    </p>
+                  )}
                 </div>
               </article>
             ))
