@@ -19,10 +19,11 @@ export default function CartSidebar() {
     setQuantity,
     subtotal,
   } = useCart();
-  const { whatsappNumber } = useSiteSettings();
+  const { whatsappNumber, freeShippingFrom } = useSiteSettings();
 
-  const remaining = Math.max(0, STORE.freeShippingFrom - subtotal);
-  const progress = Math.min(100, (subtotal / STORE.freeShippingFrom) * 100);
+  const remaining = Math.max(0, freeShippingFrom - subtotal);
+  const progress =
+    freeShippingFrom > 0 ? Math.min(100, (subtotal / freeShippingFrom) * 100) : 0;
   const cashTotal = Math.round(subtotal * (1 - STORE.cashDiscount));
 
   function buildMessage() {
@@ -70,7 +71,7 @@ export default function CartSidebar() {
           </button>
         </div>
 
-        {items.length > 0 && (
+        {items.length > 0 && freeShippingFrom > 0 && (
           <div className="border-b border-[#6E6353]/10 px-6 py-4">
             <p className="text-xs text-[#2E2E2E]">
               {remaining === 0

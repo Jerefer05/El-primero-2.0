@@ -48,6 +48,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     instagramUrl: settings.instagramUrl,
     hours: settings.hours,
     transfer: settings.transfer,
+    freeShippingFrom: settings.freeShippingFrom,
+    shippingZones: settings.shippingZones,
   };
 
   return (

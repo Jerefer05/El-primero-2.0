@@ -1,15 +1,14 @@
 import { after } from "next/server";
 import { STORE } from "@/data/config";
 import { formatPrice } from "@/data/products";
-import { getProductsByIds } from "@/data/store";
+import { getProductsByIds, getSettings } from "@/data/store";
+import { checkCoupon } from "@/data/coupons";
 import { createPublicClient } from "@/lib/supabase";
 import {
   computeTotals,
-  isValidCoupon,
   isValidEmail,
   isValidPhone,
   MAX_QUANTITY,
-  normalizeCoupon,
   PAYMENT_LABELS,
   SHIPPING_LABELS,
   toWhatsappNumber,
@@ -25,6 +24,7 @@ type OrderRequest = {
   shipping?: unknown;
   payment?: unknown;
   coupon?: unknown;
+  zone?: unknown;
   website?: unknown; // campo trampa para bots
 };
 
@@ -116,10 +116,17 @@ export async function POST(request: Request) {
   if (lines.length === 0) return bad("El carrito está vacío.");
 
   const couponCode = text(body.coupon, 30);
-  const coupon =
-    couponCode && isValidCoupon(couponCode)
-      ? normalizeCoupon(couponCode)
-      : null;
+  const [coupon, settings] = await Promise.all([
+    couponCode ? checkCoupon(couponCode) : null,
+    getSettings(),
+  ]);
+
+  // Si hay zonas cargadas, el envío a domicilio necesita una.
+  let zone = null;
+  if (shipping === "envio" && settings.shippingZones.length > 0) {
+    zone = settings.shippingZones.find((item) => item.id === body.zone) ?? null;
+    if (!zone) return bad("Elegí la zona de envío.");
+  }
 
   const order: Order = {
     number: orderNumber(),
@@ -127,9 +134,14 @@ export async function POST(request: Request) {
     customer,
     shipping,
     payment,
-    coupon,
+    coupon: coupon?.code ?? null,
+    shippingZone: zone?.name ?? "",
     lines,
-    totals: computeTotals(lines, shipping, payment, coupon),
+    totals: computeTotals(lines, shipping, payment, {
+      coupon,
+      zone,
+      freeShippingFrom: settings.freeShippingFrom,
+    }),
     nextCoupon: STORE.nextPurchaseCoupon,
   };
 
@@ -160,6 +172,7 @@ async function saveOrder(order: Order) {
     shipping: order.shipping,
     payment: order.payment,
     coupon: order.coupon,
+    shipping_zone: order.shippingZone ?? "",
     lines: order.lines,
     totals: order.totals,
     total: order.totals.total,
@@ -218,7 +231,7 @@ async function notifyOwner(order: Order) {
     `✉️ ${e(customer.email)}`,
     `🚚 ${SHIPPING_LABELS[order.shipping]}`,
     order.shipping === "envio"
-      ? `📍 ${e(customer.address)}, ${e(customer.city)}`
+      ? `📍 ${e(customer.address)}, ${e(customer.city)}${order.shippingZone ? ` (${e(order.shippingZone)})` : ""}`
       : null,
     `💳 ${PAYMENT_LABELS[order.payment]}`,
     customer.notes ? `📝 ${e(customer.notes)}` : null,

@@ -67,10 +67,12 @@ export default async function Footer() {
             Envíos y pagos
           </p>
           <ul className="mt-3 space-y-2 text-sm leading-relaxed text-[#2E2E2E]">
-            <li>
-              Envío gratis superando los $
-              {STORE.freeShippingFrom.toLocaleString("es-AR")}
-            </li>
+            {settings.freeShippingFrom > 0 && (
+              <li>
+                Envío gratis superando los $
+                {settings.freeShippingFrom.toLocaleString("es-AR")}
+              </li>
+            )}
             <li>
               {Math.round(STORE.cashDiscount * 100)}% OFF abonando en efectivo
             </li>

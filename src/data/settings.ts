@@ -1,5 +1,6 @@
 // Se usa tanto en el servidor como en el navegador (almacén y contexto).
 import { STORE } from "@/data/config";
+import type { ShippingZone } from "@/lib/order";
 
 // Textos y datos de la tienda que el dueño edita desde el almacén.
 export type SiteSettings = {
@@ -14,6 +15,8 @@ export type SiteSettings = {
   hours: string;
   transfer: { alias: string; cbu: string; holder: string };
   banner: { active: boolean; text: string };
+  freeShippingFrom: number; // 0 = nunca es gratis
+  shippingZones: ShippingZone[];
 };
 
 // Forma de la fila en la tabla `site_settings` de Supabase.
@@ -32,10 +35,11 @@ export type SettingsRow = {
   transfer_holder: string;
   banner_active: boolean;
   banner_text: string;
+  free_shipping_from: number;
 };
 
 export const SETTINGS_COLUMNS =
-  "hero_kicker, hero_title, hero_subtitle, about_title, about_subtitle, about_values, whatsapp_number, instagram_url, hours, transfer_alias, transfer_cbu, transfer_holder, banner_active, banner_text";
+  "hero_kicker, hero_title, hero_subtitle, about_title, about_subtitle, about_values, whatsapp_number, instagram_url, hours, transfer_alias, transfer_cbu, transfer_holder, banner_active, banner_text, free_shipping_from";
 
 // Respaldo por si la base no responde
 export const DEFAULT_SETTINGS: SiteSettings = {
@@ -67,9 +71,14 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   hours: STORE.hours,
   transfer: STORE.transfer,
   banner: { active: false, text: "" },
+  freeShippingFrom: STORE.freeShippingFrom,
+  shippingZones: [],
 };
 
-export function rowToSettings(row: SettingsRow): SiteSettings {
+export function rowToSettings(
+  row: SettingsRow,
+  shippingZones: ShippingZone[] = [],
+): SiteSettings {
   return {
     heroKicker: row.hero_kicker,
     heroTitle: row.hero_title || DEFAULT_SETTINGS.heroTitle,
@@ -86,11 +95,18 @@ export function rowToSettings(row: SettingsRow): SiteSettings {
       holder: row.transfer_holder,
     },
     banner: { active: row.banner_active, text: row.banner_text },
+    freeShippingFrom: row.free_shipping_from,
+    shippingZones,
   };
 }
 
 // Lo que necesitan los componentes del navegador (carrito, comprobante, etc.)
 export type ContactSettings = Pick<
   SiteSettings,
-  "whatsappNumber" | "instagramUrl" | "hours" | "transfer"
+  | "whatsappNumber"
+  | "instagramUrl"
+  | "hours"
+  | "transfer"
+  | "freeShippingFrom"
+  | "shippingZones"
 >;

@@ -2,6 +2,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { createPublicClient } from "@/lib/supabase";
 import { featuredProducts, type Product } from "@/data/products";
 import { PRODUCT_COLUMNS, rowToProduct, type ProductRow } from "@/data/productRow";
+import type { ShippingZone } from "@/lib/order";
 import {
   DEFAULT_SETTINGS,
   rowToSettings,
@@ -24,6 +25,7 @@ export async function getProducts(): Promise<Product[]> {
     .from("products")
     .select(PRODUCT_COLUMNS)
     .eq("active", true)
+    .order("featured", { ascending: false })
     .order("position")
     .order("name");
 
@@ -49,15 +51,20 @@ export async function getSettings(): Promise<SiteSettings> {
   cacheTag(SETTINGS_TAG);
   cacheLife("hours");
 
-  const { data, error } = await createPublicClient()
-    .from("site_settings")
-    .select(SETTINGS_COLUMNS)
-    .eq("id", 1)
-    .maybeSingle();
+  const supabase = createPublicClient();
+  const [{ data, error }, zones] = await Promise.all([
+    supabase.from("site_settings").select(SETTINGS_COLUMNS).eq("id", 1).maybeSingle(),
+    supabase
+      .from("shipping_zones")
+      .select("id, name, price")
+      .eq("active", true)
+      .order("position")
+      .order("name"),
+  ]);
 
   if (error || !data) {
     console.error("No se pudieron leer los ajustes:", error?.message);
     return DEFAULT_SETTINGS;
   }
-  return rowToSettings(data as SettingsRow);
+  return rowToSettings(data as SettingsRow, (zones.data as ShippingZone[]) ?? []);
 }

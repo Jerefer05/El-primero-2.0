@@ -42,13 +42,14 @@ export type OrderRow = {
   totals: OrderTotals;
   total: number;
   completed_at: string | null;
+  shipping_zone: string;
 };
 
 // "pendientes" = todo lo que todavía requiere hacer algo
 type Filter = "pendientes" | "todos" | Status;
 
 export const ORDER_COLUMNS =
-  "number, created_at, completed_at, status, customer_name, customer_email, customer_phone, address, city, notes, shipping, payment, coupon, lines, totals, total";
+  "number, created_at, completed_at, status, customer_name, customer_email, customer_phone, address, city, notes, shipping, payment, coupon, lines, totals, total, shipping_zone";
 
 export function statusInfo(status: Status) {
   return STATUSES.find((item) => item.value === status) ?? STATUSES[0];
@@ -195,6 +196,15 @@ function OrderCard({
             <span className="text-[#2E2E2E]/75">{formatPrice(line.price * line.quantity)}</span>
           </li>
         ))}
+        {(order.totals.shippingCost ?? 0) > 0 && (
+          <li className="flex justify-between gap-3 text-[#2E2E2E]/75">
+            <span>Envío {order.shipping_zone}</span>
+            <span>{formatPrice(order.totals.shippingCost ?? 0)}</span>
+          </li>
+        )}
+        {order.coupon && (
+          <li className="text-xs text-[#2E2E2E]/60">Cupón usado: {order.coupon}</li>
+        )}
         {order.totals.discount > 0 && (
           <li className="flex justify-between gap-3 text-[#2E2E2E]/75">
             <span>Descuento {order.totals.discountLabel}</span>
@@ -214,6 +224,7 @@ function OrderCard({
         <div>
           🚚 {SHIPPING_LABELS[order.shipping]}
           {order.shipping === "envio" && ` · ${order.address}, ${order.city}`}
+          {order.shipping_zone && ` (${order.shipping_zone})`}
         </div>
         {order.notes && <div className="sm:col-span-2">📝 {order.notes}</div>}
       </dl>

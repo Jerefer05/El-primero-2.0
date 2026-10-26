@@ -3,7 +3,7 @@
 import { formatPrice, type Product } from "@/data/products";
 
 export const PRODUCT_COLUMNS =
-  "id, name, price, image, alt, category, in_stock, stock, position, caracteristicas, active";
+  "id, name, price, image, alt, category, in_stock, stock, position, caracteristicas, active, featured";
 
 export type ProductRow = {
   id: string;
@@ -17,6 +17,7 @@ export type ProductRow = {
   position: number;
   caracteristicas: { label: string; value: string }[];
   active: boolean; // false = pausado, no se muestra en la tienda
+  featured: boolean; // true = aparece primero, con cartel de "Destacado"
 };
 
 export function rowToProduct(row: ProductRow): Product {
@@ -30,5 +31,6 @@ export function rowToProduct(row: ProductRow): Product {
     category: row.category,
     inStock: row.in_stock && row.stock !== 0,
     features: row.caracteristicas ?? [],
+    featured: row.featured,
   };
 }
