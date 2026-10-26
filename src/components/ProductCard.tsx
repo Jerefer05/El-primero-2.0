@@ -18,6 +18,11 @@ export default function ProductCard({ product }: ProductCardProps) {
     <article className="group overflow-hidden rounded-2xl border border-white/50 bg-white/40 backdrop-blur-sm shadow-whisper transition duration-500 hover:-translate-y-1 hover:shadow-soft">
       {/* Fondo #d7cbbe: se ve mientras carga y si la imagen falla */}
       <div className="relative aspect-[4/5] overflow-hidden bg-[#d7cbbe]">
+        {product.featured && (
+          <span className="absolute top-3 left-3 z-10 rounded-full bg-[#6E6353] px-3 py-1 text-[0.65rem] tracking-[0.16em] text-[#f4eee6] uppercase shadow-whisper">
+            Destacado
+          </span>
+        )}
         {!imageFailed && (
           <Image
             src={product.image}

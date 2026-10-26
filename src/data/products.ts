@@ -8,6 +8,7 @@ export type Product = {
   category: "velas" | "recarga";
   inStock?: boolean; // false = se muestra como "Agotado"
   features?: { label: string; value: string }[];
+  featured?: boolean; // se muestra primero, con cartel de "Destacado"
 };
 
 // Los productos ahora se cargan desde el almacén (/almacen).

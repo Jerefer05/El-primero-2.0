@@ -7,15 +7,15 @@ import { useRouter } from "next/navigation";
 import { formatPrice } from "@/data/products";
 import { STORE } from "@/data/config";
 import { useCart } from "@/context/CartContext";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 import {
   computeTotals,
   EMAIL_PATTERN,
-  isValidCoupon,
   LAST_ORDER_KEY,
-  normalizeCoupon,
   PAYMENT_LABELS,
   PHONE_PATTERN,
   SHIPPING_LABELS,
+  type AppliedCoupon,
   type Order,
   type PaymentMethod,
   type ShippingMethod,
@@ -83,24 +83,49 @@ function Choice<T extends string>({
 export default function CheckoutForm() {
   const router = useRouter();
   const { items, clearCart } = useCart();
+  const { shippingZones, freeShippingFrom } = useSiteSettings();
+  const [zoneId, setZoneId] = useState("");
   const [shipping, setShipping] = useState<ShippingMethod>("envio");
   const [payment, setPayment] = useState<PaymentMethod>("transferencia");
   const [couponInput, setCouponInput] = useState("");
-  const [coupon, setCoupon] = useState<string | null>(null);
+  const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
   const [couponError, setCouponError] = useState("");
+  const [checkingCoupon, setCheckingCoupon] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
 
-  const totals = computeTotals(items, shipping, payment, coupon);
+  const zone = shippingZones.find((item) => item.id === zoneId) ?? null;
+  const totals = computeTotals(items, shipping, payment, {
+    coupon,
+    zone,
+    freeShippingFrom,
+  });
 
-  function applyCoupon() {
-    if (isValidCoupon(couponInput)) {
-      setCoupon(normalizeCoupon(couponInput));
-      setCouponError("");
-    } else {
-      setCoupon(null);
-      setCouponError("Ese código no es válido.");
+  // El código se valida en el servidor: la lista de cupones no es pública.
+  async function applyCoupon() {
+    if (!couponInput.trim() || checkingCoupon) return;
+    setCheckingCoupon(true);
+    try {
+      const response = await fetch("/api/cupon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: couponInput }),
+      });
+      const result = (await response.json()) as {
+        coupon?: AppliedCoupon;
+        error?: string;
+      };
+      if (result.coupon) {
+        setCoupon(result.coupon);
+        setCouponError("");
+      } else {
+        setCoupon(null);
+        setCouponError(result.error ?? "Ese código no es válido.");
+      }
+    } catch {
+      setCouponError("No pudimos revisar el cupón. Probá de nuevo.");
     }
+    setCheckingCoupon(false);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -127,8 +152,9 @@ export default function CheckoutForm() {
             notes: field("notes"),
           },
           shipping,
+          zone: zoneId,
           payment,
-          coupon,
+          coupon: coupon?.code ?? null,
           website: field("website"),
         }),
       });
@@ -222,6 +248,35 @@ export default function CheckoutForm() {
             value={shipping}
             onChange={setShipping}
           />
+          {shipping === "envio" && shippingZones.length > 0 && (
+            <div className="space-y-2">
+              <label htmlFor="zone" className="text-sm text-[#2E2E2E]">
+                Zona de envío
+              </label>
+              <select
+                id="zone"
+                required
+                value={zoneId}
+                onChange={(event) => setZoneId(event.target.value)}
+                className={inputClass}
+              >
+                <option value="" disabled>
+                  Elegí tu zona
+                </option>
+                {shippingZones.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name} —{" "}
+                    {item.price === 0 ? "sin cargo" : formatPrice(item.price)}
+                  </option>
+                ))}
+              </select>
+              {freeShippingFrom > 0 && (
+                <p className="text-xs text-[#2E2E2E]/60">
+                  Gratis en compras desde {formatPrice(freeShippingFrom)}.
+                </p>
+              )}
+            </div>
+          )}
           {shipping === "envio" && (
             <div className="grid gap-5 sm:grid-cols-[1fr_200px]">
               <Field
@@ -317,16 +372,21 @@ export default function CheckoutForm() {
             <input
               id="coupon"
               value={couponInput}
-              onChange={(event) => setCouponInput(event.target.value)}
+              onChange={(event) => {
+                setCouponInput(event.target.value);
+                setCoupon(null);
+                setCouponError("");
+              }}
               placeholder="Código"
               className={`${inputClass} py-2 uppercase`}
             />
             <button
               type="button"
               onClick={applyCoupon}
+              disabled={checkingCoupon}
               className="rounded-xl border border-[#6E6353] px-4 text-sm text-[#6E6353] transition hover:bg-[#6E6353] hover:text-[#f4eee6]"
             >
-              Aplicar
+              {checkingCoupon ? "…" : "Aplicar"}
             </button>
           </div>
           {coupon && !couponError && (
@@ -337,7 +397,7 @@ export default function CheckoutForm() {
           )}
           {coupon &&
             payment === "efectivo" &&
-            STORE.cashDiscount > STORE.nextPurchaseCoupon.percent && (
+            STORE.cashDiscount > coupon.percent / 100 && (
               <p className="mt-1 text-xs text-[#2E2E2E]/60">
                 Los descuentos no se suman: aplicamos el de efectivo, que es
                 mayor.

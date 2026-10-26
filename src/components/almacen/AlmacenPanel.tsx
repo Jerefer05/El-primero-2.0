@@ -8,6 +8,9 @@ import { PRODUCT_COLUMNS, type ProductRow } from "@/data/productRow";
 import { refreshStore } from "@/app/almacen/actions";
 import OrdersPanel from "@/components/almacen/OrdersPanel";
 import HistoryPanel from "@/components/almacen/HistoryPanel";
+import SalesPanel from "@/components/almacen/SalesPanel";
+import CouponsPanel from "@/components/almacen/CouponsPanel";
+import ShippingPanel from "@/components/almacen/ShippingPanel";
 import SettingsPanel from "@/components/almacen/SettingsPanel";
 import { inputClass, primaryButton, secondaryButton } from "@/components/almacen/styles";
 
@@ -19,7 +22,10 @@ const CATEGORIES: { value: Product["category"]; label: string }[] = [
 const TABS = [
   { id: "pedidos", label: "Pedidos" },
   { id: "historial", label: "Historial" },
+  { id: "ventas", label: "Ventas" },
   { id: "productos", label: "Productos" },
+  { id: "cupones", label: "Cupones" },
+  { id: "envios", label: "Envíos" },
   { id: "textos", label: "Textos y aviso" },
   { id: "contacto", label: "Pago y contacto" },
 ] as const;
@@ -155,6 +161,9 @@ function AdminArea({ session }: { session: Session }) {
 
       {tab === "pedidos" && <OrdersPanel />}
       {tab === "historial" && <HistoryPanel />}
+      {tab === "ventas" && <SalesPanel />}
+      {tab === "cupones" && <CouponsPanel />}
+      {tab === "envios" && <ShippingPanel session={session} />}
       {tab === "productos" && <Inventory session={session} />}
       {tab === "textos" && <SettingsPanel session={session} section="textos" />}
       {tab === "contacto" && <SettingsPanel session={session} section="contacto" />}
@@ -268,8 +277,16 @@ function fetchProducts() {
   return getBrowserClient()
     .from("products")
     .select(PRODUCT_COLUMNS)
+    .order("featured", { ascending: false })
     .order("position")
     .order("name");
+}
+
+// Mismo orden que la tienda: por categoría, destacados primero y después la posición
+function storeOrder(rows: ProductRow[]) {
+  return CATEGORIES.flatMap((category) =>
+    rows.filter((row) => row.category === category.value),
+  );
 }
 
 function Inventory({ session }: { session: Session }) {
@@ -335,6 +352,52 @@ function Inventory({ session }: { session: Session }) {
     );
   }
 
+  async function toggleFeatured(row: ProductRow) {
+    const { error } = await supabase
+      .from("products")
+      .update({ featured: !row.featured })
+      .eq("id", row.id);
+    if (error) {
+      setNotice("No se pudo guardar el cambio.");
+      return;
+    }
+    await afterChange(
+      row.featured
+        ? `${row.name} ya no está destacado.`
+        : `${row.name} quedó destacado: aparece primero en la tienda.`,
+    );
+  }
+
+  // Sube o baja un producto entre los de su misma categoría (y mismo
+  // destacado), y renumera las posiciones para que no queden repetidas.
+  async function move(row: ProductRow, direction: -1 | 1) {
+    const ordered = storeOrder(rows);
+    const group = ordered.filter(
+      (item) => item.category === row.category && item.featured === row.featured,
+    );
+    const index = group.findIndex((item) => item.id === row.id);
+    const neighbor = group[index + direction];
+    if (!neighbor) return;
+    const a = ordered.indexOf(row);
+    const b = ordered.indexOf(neighbor);
+    [ordered[a], ordered[b]] = [ordered[b], ordered[a]];
+
+    const changes = ordered
+      .map((item, i) => ({ item, position: i + 1 }))
+      .filter(({ item, position }) => item.position !== position);
+    const results = await Promise.all(
+      changes.map(({ item, position }) =>
+        supabase.from("products").update({ position }).eq("id", item.id),
+      ),
+    );
+    if (results.some((result) => result.error)) {
+      setNotice("No se pudo guardar el orden. Probá de nuevo.");
+      await loadProducts();
+      return;
+    }
+    await afterChange(`Listo, ${row.name} quedó ${direction < 0 ? "más arriba" : "más abajo"}.`);
+  }
+
   async function deleteProduct(row: ProductRow) {
     const { error } = await supabase.from("products").delete().eq("id", row.id);
     setConfirmDelete(null);
@@ -386,71 +449,119 @@ function Inventory({ session }: { session: Session }) {
         />
       )}
 
-      <ul className="divide-y divide-[#6E6353]/15 overflow-hidden rounded-2xl border border-white/50 bg-white/40 shadow-whisper backdrop-blur-sm">
-        {rows.map((row) => {
-          const soldOut = !row.in_stock || row.stock === 0;
-          return (
-            <li
-              key={row.id}
-              className={`flex flex-wrap items-center gap-4 px-5 py-4 ${row.active ? "" : "bg-[#d7cbbe]/30"}`}
-            >
-              <div
-                className={`h-16 w-14 shrink-0 overflow-hidden rounded-lg bg-[#d7cbbe] ${row.active ? "" : "opacity-50"}`}
-              >
-                {row.image && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={row.image} alt="" className="h-full w-full object-cover" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-serif text-lg">{row.name}</p>
-                <p className="text-xs text-[#2E2E2E]/70">
-                  {formatPrice(row.price)} ·{" "}
-                  {CATEGORIES.find((c) => c.value === row.category)?.label}
-                  {row.stock !== null && ` · Stock: ${row.stock}`}
-                  {soldOut && " · Agotado"}
-                  {!row.active && " · Pausado (no se ve en la tienda)"}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => toggleActive(row)} className={secondaryButton}>
-                  {row.active ? "Pausar" : "Activar"}
-                </button>
-                <button type="button" onClick={() => toggleStock(row)} className={secondaryButton}>
-                  {row.in_stock ? "Marcar agotado" : "Hay stock"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNotice("");
-                    setDraft(rowToDraft(row));
-                  }}
-                  className={secondaryButton}
-                >
-                  Editar
-                </button>
-                {confirmDelete === row.id ? (
-                  <button
-                    type="button"
-                    onClick={() => deleteProduct(row)}
-                    className="rounded-full bg-red-700 px-5 py-2 text-xs tracking-[0.16em] text-white uppercase"
+      <p className="text-xs text-[#2E2E2E]/70">
+        Con las flechas cambiás el orden en la tienda. La estrella destaca un
+        producto: aparece primero en su categoría, con un cartel de “Destacado”.
+      </p>
+
+      {CATEGORIES.map((category) => {
+        const group = rows.filter((row) => row.category === category.value);
+        if (group.length === 0) return null;
+        return (
+          <section key={category.value} className="space-y-2">
+            <h2 className="font-serif text-xl">{category.label}</h2>
+            <ul className="divide-y divide-[#6E6353]/15 overflow-hidden rounded-2xl border border-white/50 bg-white/40 shadow-whisper backdrop-blur-sm">
+              {group.map((row) => {
+                const soldOut = !row.in_stock || row.stock === 0;
+                const sameGroup = group.filter((item) => item.featured === row.featured);
+                const first = sameGroup[0]?.id === row.id;
+                const last = sameGroup[sameGroup.length - 1]?.id === row.id;
+                return (
+                  <li
+                    key={row.id}
+                    className={`flex flex-wrap items-center gap-4 px-5 py-4 ${row.active ? "" : "bg-[#d7cbbe]/30"}`}
                   >
-                    ¿Seguro? Borrar
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDelete(row.id)}
-                    className={secondaryButton}
-                  >
-                    Borrar
-                  </button>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+                    <div className="flex flex-col gap-1">
+                      <button
+                        type="button"
+                        onClick={() => move(row, -1)}
+                        disabled={first}
+                        aria-label={`Subir ${row.name}`}
+                        className="h-7 w-7 rounded-full border border-[#6E6353]/40 text-[#6E6353] transition hover:bg-[#6E6353] hover:text-[#f4eee6] disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-[#6E6353]"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => move(row, 1)}
+                        disabled={last}
+                        aria-label={`Bajar ${row.name}`}
+                        className="h-7 w-7 rounded-full border border-[#6E6353]/40 text-[#6E6353] transition hover:bg-[#6E6353] hover:text-[#f4eee6] disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-[#6E6353]"
+                      >
+                        ↓
+                      </button>
+                    </div>
+                    <div
+                      className={`h-16 w-14 shrink-0 overflow-hidden rounded-lg bg-[#d7cbbe] ${row.active ? "" : "opacity-50"}`}
+                    >
+                      {row.image && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={row.image} alt="" className="h-full w-full object-cover" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-serif text-lg">
+                        {row.featured && <span className="mr-1 text-[#b08d3c]">★</span>}
+                        {row.name}
+                      </p>
+                      <p className="text-xs text-[#2E2E2E]/70">
+                        {formatPrice(row.price)} ·{" "}
+                        {CATEGORIES.find((c) => c.value === row.category)?.label}
+                        {row.stock !== null && ` · Stock: ${row.stock}`}
+                        {soldOut && " · Agotado"}
+                        {!row.active && " · Pausado (no se ve en la tienda)"}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleFeatured(row)}
+                        aria-pressed={row.featured}
+                        className={secondaryButton}
+                      >
+                        {row.featured ? "★ Destacado" : "☆ Destacar"}
+                      </button>
+                      <button type="button" onClick={() => toggleActive(row)} className={secondaryButton}>
+                        {row.active ? "Pausar" : "Activar"}
+                      </button>
+                      <button type="button" onClick={() => toggleStock(row)} className={secondaryButton}>
+                        {row.in_stock ? "Marcar agotado" : "Hay stock"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNotice("");
+                          setDraft(rowToDraft(row));
+                        }}
+                        className={secondaryButton}
+                      >
+                        Editar
+                      </button>
+                      {confirmDelete === row.id ? (
+                        <button
+                          type="button"
+                          onClick={() => deleteProduct(row)}
+                          className="rounded-full bg-red-700 px-5 py-2 text-xs tracking-[0.16em] text-white uppercase"
+                        >
+                          ¿Seguro? Borrar
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDelete(row.id)}
+                          className={secondaryButton}
+                        >
+                          Borrar
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })}
     </div>
   );
 }

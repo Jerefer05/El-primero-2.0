@@ -41,7 +41,20 @@ export type OrderTotals = {
   discountLabel: string | null;
   discount: number;
   shippingLabel: string;
+  shippingCost?: number; // los pedidos viejos no lo tienen
   total: number;
+};
+
+// Cupón ya validado contra la base (porcentaje entero, ej: 10 = 10% OFF)
+export type AppliedCoupon = { code: string; percent: number };
+
+export type ShippingZone = { id: string; name: string; price: number };
+
+// Lo que cambia el total además de los productos
+export type Pricing = {
+  coupon: AppliedCoupon | null;
+  zone: ShippingZone | null;
+  freeShippingFrom: number; // 0 = nunca es gratis
 };
 
 export type Order = {
@@ -51,6 +64,7 @@ export type Order = {
   shipping: ShippingMethod;
   payment: PaymentMethod;
   coupon: string | null;
+  shippingZone?: string;
   lines: OrderLine[];
   totals: OrderTotals;
   nextCoupon: { code: string; percent: number };
@@ -62,12 +76,6 @@ export const MAX_QUANTITY = 99;
 // Ignora espacios y mayúsculas: "vuelve 10" vale igual que "VUELVE10".
 export function normalizeCoupon(code: string) {
   return code.replace(/\s+/g, "").toUpperCase();
-}
-
-export function isValidCoupon(code: string) {
-  return (
-    normalizeCoupon(code) === normalizeCoupon(STORE.nextPurchaseCoupon.code)
-  );
 }
 
 // Un email con algo antes y después de la @ y un punto en el dominio.
@@ -85,35 +93,45 @@ export function isValidPhone(phone: string) {
 }
 
 // El cupón y el descuento en efectivo no se suman: se aplica el mayor.
+// El envío se suma al final según la zona, salvo que llegue al envío gratis.
 export function computeTotals(
   lines: Pick<OrderLine, "price" | "quantity">[],
   shipping: ShippingMethod,
   payment: PaymentMethod,
-  coupon: string | null,
+  pricing: Pricing,
 ): OrderTotals {
   const subtotal = lines.reduce(
     (sum, line) => sum + line.price * line.quantity,
     0,
   );
 
-  const couponPercent =
-    coupon && isValidCoupon(coupon) ? STORE.nextPurchaseCoupon.percent : 0;
+  const couponPercent = pricing.coupon ? pricing.coupon.percent / 100 : 0;
   const cashPercent = payment === "efectivo" ? STORE.cashDiscount : 0;
   const percent = Math.max(couponPercent, cashPercent);
 
   let discountLabel: string | null = null;
   if (percent > 0) {
     discountLabel =
-      couponPercent >= cashPercent
-        ? `Cupón ${STORE.nextPurchaseCoupon.code} (${Math.round(couponPercent * 100)}% OFF)`
+      pricing.coupon && couponPercent >= cashPercent
+        ? `Cupón ${pricing.coupon.code} (${pricing.coupon.percent}% OFF)`
         : `Pago en efectivo (${Math.round(cashPercent * 100)}% OFF)`;
   }
   const discount = Math.round(subtotal * percent);
 
   let shippingLabel = "Sin cargo";
+  let shippingCost = 0;
   if (shipping === "envio") {
-    shippingLabel =
-      subtotal >= STORE.freeShippingFrom ? "¡Gratis!" : "A coordinar";
+    if (pricing.freeShippingFrom > 0 && subtotal >= pricing.freeShippingFrom) {
+      shippingLabel = "¡Gratis!";
+    } else if (pricing.zone) {
+      shippingCost = pricing.zone.price;
+      shippingLabel =
+        shippingCost === 0
+          ? `${pricing.zone.name}: sin cargo`
+          : `${pricing.zone.name}: $${shippingCost.toLocaleString("es-AR")}`;
+    } else {
+      shippingLabel = "A coordinar";
+    }
   }
 
   return {
@@ -121,7 +139,8 @@ export function computeTotals(
     discountLabel,
     discount,
     shippingLabel,
-    total: subtotal - discount,
+    shippingCost,
+    total: subtotal - discount + shippingCost,
   };
 }
 
