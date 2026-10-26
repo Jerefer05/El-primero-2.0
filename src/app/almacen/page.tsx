@@ -12,8 +12,8 @@ export default function AlmacenPage() {
       <div className="mb-10 text-center">
         <h1 className="title-soft font-serif text-4xl md:text-5xl">Almacén</h1>
         <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#2E2E2E]/75">
-          Cargá y editá los productos de la tienda. Los cambios se ven en la
-          web apenas los guardás.
+          Pedidos, productos, textos y datos de la tienda en un solo lugar.
+          Los cambios se ven en la web apenas los guardás.
         </p>
       </div>
       <AlmacenPanel />

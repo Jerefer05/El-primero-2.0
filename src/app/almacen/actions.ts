@@ -2,7 +2,7 @@
 
 import { updateTag } from "next/cache";
 import { createClientWithToken } from "@/lib/supabase";
-import { PRODUCTS_TAG } from "@/data/store";
+import { PRODUCTS_TAG, SETTINGS_TAG } from "@/data/store";
 
 // Se llama desde el almacén después de guardar, para que la tienda
 // muestre los cambios enseguida. Solo un admin puede pedirlo.
@@ -22,5 +22,6 @@ export async function refreshStore(accessToken: string) {
     return { ok: false };
   }
   updateTag(PRODUCTS_TAG);
+  updateTag(SETTINGS_TAG);
   return { ok: true };
 }

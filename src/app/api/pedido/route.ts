@@ -1,6 +1,7 @@
 import { STORE } from "@/data/config";
 import { formatPrice } from "@/data/products";
 import { getProductsByIds } from "@/data/store";
+import { createPublicClient } from "@/lib/supabase";
 import {
   computeTotals,
   isValidCoupon,
@@ -108,10 +109,35 @@ export async function POST(request: Request) {
   // Los bots completan todos los campos, incluso el oculto: le respondemos
   // como si nada pero no le avisamos al dueño.
   if (!text(body.website)) {
-    await notifyOwner(order);
+    await Promise.all([saveOrder(order), notifyOwner(order)]);
   }
 
   return Response.json({ order });
+}
+
+// Lo guarda para verlo y cambiarle el estado desde el almacén.
+async function saveOrder(order: Order) {
+  const { customer } = order;
+  const { error } = await createPublicClient().from("orders").insert({
+    number: order.number,
+    created_at: order.createdAt,
+    customer_name: customer.name,
+    customer_email: customer.email,
+    customer_phone: customer.phone,
+    address: customer.address,
+    city: customer.city,
+    notes: customer.notes,
+    shipping: order.shipping,
+    payment: order.payment,
+    coupon: order.coupon,
+    lines: order.lines,
+    totals: order.totals,
+    total: order.totals.total,
+  });
+  if (error) {
+    // El pedido igual se confirma: el cliente tiene su comprobante y el aviso por Telegram.
+    console.error(`No se pudo guardar el pedido ${order.number}:`, error.message);
+  }
 }
 
 function escapeHtml(value: string) {

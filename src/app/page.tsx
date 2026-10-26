@@ -1,33 +1,15 @@
 import Link from "next/link";
 import Hero from "@/components/Hero";
 import ProductCard from "@/components/ProductCard";
-import { getProducts } from "@/data/store";
-
-const values = [
-  {
-    title: "Tranquilidad",
-    description:
-      "Una llama suave, aromas serenos y un rincón de calma para el ritmo de cada día.",
-  },
-  {
-    title: "Experiencia sensorial",
-    description:
-      "Texturas, luz y perfume se encuentran para vestir el hogar con una atmósfera íntima.",
-  },
-  {
-    title: "Autenticidad",
-    description:
-      "Hecho a mano, con paciencia y oficio. Cada pieza guarda un gesto único.",
-  },
-];
+import { getProducts, getSettings } from "@/data/store";
 
 export default async function Home() {
-  const products = await getProducts();
+  const [products, settings] = await Promise.all([getProducts(), getSettings()]);
 
   return (
     <div>
       {/* 1. Hero */}
-      <Hero />
+      <Hero settings={settings} />
 
       {/* 2. Catálogo destacado */}
       <section
@@ -66,14 +48,14 @@ export default async function Home() {
       <section className="mx-auto max-w-6xl px-5 py-8 md:px-8 md:py-16">
         <div className="mb-12 text-center">
           <h2 className="title-soft font-serif text-3xl md:text-4xl">
-            Nuestra esencia
+            {settings.aboutTitle}
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#2E2E2E]/75">
-            Minimalismo cálido, armonía y un recuerdo que permanece.
+            {settings.aboutSubtitle}
           </p>
         </div>
         <div className="grid gap-6 md:grid-cols-3">
-          {values.map((value) => (
+          {settings.aboutValues.map((value) => (
             <article
               key={value.title}
               className="rounded-2xl border border-white/50 bg-white/35 px-7 py-10 shadow-whisper backdrop-blur-sm"

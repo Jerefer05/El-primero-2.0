@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatPrice } from "@/data/products";
 import { STORE, whatsappLink } from "@/data/config";
 import { useCart } from "@/context/CartContext";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 
 export default function CartSidebar() {
   const {
@@ -16,6 +17,7 @@ export default function CartSidebar() {
     decreaseItem,
     subtotal,
   } = useCart();
+  const { whatsappNumber } = useSiteSettings();
 
   const remaining = Math.max(0, STORE.freeShippingFrom - subtotal);
   const progress = Math.min(100, (subtotal / STORE.freeShippingFrom) * 100);
@@ -176,7 +178,7 @@ export default function CartSidebar() {
                 Finalizar Compra
               </Link>
               <a
-                href={whatsappLink(buildMessage())}
+                href={whatsappLink(buildMessage(), whatsappNumber)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-3 block text-center text-xs text-[#2E2E2E]/60 underline-offset-2 hover:underline"

@@ -8,6 +8,9 @@ import SkyClouds from "@/components/SkyClouds";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import AddedToCartModal from "@/components/AddedToCartModal";
 import DiscountPopup from "@/components/DiscountPopup";
+import AnnouncementBar from "@/components/AnnouncementBar";
+import { SiteSettingsProvider } from "@/context/SiteSettingsContext";
+import { getSettings } from "@/data/store";
 import "./globals.css";
 
 const prata = Prata({
@@ -38,7 +41,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const settings = await getSettings();
+  const contact = {
+    whatsappNumber: settings.whatsappNumber,
+    instagramUrl: settings.instagramUrl,
+    hours: settings.hours,
+    transfer: settings.transfer,
+  };
+
   return (
     <html
       lang="es"
@@ -46,15 +57,20 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="relative isolate flex min-h-full flex-col font-sans text-[#2E2E2E]">
         <SkyClouds />
-        <CartProvider>
-          <Navbar />
-          <main className="flex-1">{children}</main>
-          <Footer />
-          <CartSidebar />
-          <AddedToCartModal />
-          <DiscountPopup />
-          <WhatsAppButton />
-        </CartProvider>
+        {settings.banner.active && settings.banner.text && (
+          <AnnouncementBar text={settings.banner.text} />
+        )}
+        <SiteSettingsProvider value={contact}>
+          <CartProvider>
+            <Navbar />
+            <main className="flex-1">{children}</main>
+            <Footer />
+            <CartSidebar />
+            <AddedToCartModal />
+            <DiscountPopup />
+            <WhatsAppButton number={settings.whatsappNumber} />
+          </CartProvider>
+        </SiteSettingsProvider>
       </body>
     </html>
   );

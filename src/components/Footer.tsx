@@ -1,7 +1,9 @@
 import CurrentYear from "@/components/CurrentYear";
 import { STORE, whatsappLink } from "@/data/config";
+import { getSettings } from "@/data/store";
 
-export default function Footer() {
+export default async function Footer() {
+  const settings = await getSettings();
   return (
     <footer
       id="contacto"
@@ -23,7 +25,10 @@ export default function Footer() {
           <ul className="mt-3 space-y-2 text-sm text-[#2E2E2E]">
             <li>
               <a
-                href={whatsappLink("¡Hola Tesoria! Quería hacerles una consulta.")}
+                href={whatsappLink(
+                  "¡Hola Tesoria! Quería hacerles una consulta.",
+                  settings.whatsappNumber,
+                )}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline-offset-2 hover:underline"
@@ -31,10 +36,10 @@ export default function Footer() {
                 WhatsApp
               </a>
             </li>
-            {STORE.instagramUrl && (
+            {settings.instagramUrl && (
               <li>
                 <a
-                  href={STORE.instagramUrl}
+                  href={settings.instagramUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="underline-offset-2 hover:underline"
@@ -52,7 +57,7 @@ export default function Footer() {
             Atención
           </p>
           <p className="mt-3 text-sm leading-relaxed text-[#2E2E2E]">
-            {STORE.hours}
+            {settings.hours}
           </p>
           <p className="mt-2 text-sm text-[#2E2E2E]/70">Argentina</p>
         </div>
