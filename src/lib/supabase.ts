@@ -36,3 +36,6 @@ export function getBrowserClient() {
   }
   return browserClient;
 }
+
+// Fotos que suben los clientes en /pedidos, en calidad original
+export const ORDER_PHOTOS_BUCKET = "pedidos-fotos";
