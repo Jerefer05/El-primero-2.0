@@ -4,7 +4,7 @@ import PhotoOrderForm from "@/components/PhotoOrderForm";
 export const metadata: Metadata = {
   title: "Pedidos personalizados | Tesoria",
   description:
-    "Encargá Polaroids e impresiones con tu imagen de referencia.",
+    "Encargá Polaroids e impresiones con tus fotos, en calidad original.",
 };
 
 export default function PedidosPage() {
@@ -18,7 +18,7 @@ export default function PedidosPage() {
           Pedidos personalizados
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#2E2E2E]/75">
-          Subí tu foto de referencia y elegí el formato. Este flujo es
+          Subí tus fotos y elegí el formato. Te llegan en calidad original. Este flujo es
           independiente de la tienda de velas.
         </p>
       </div>
