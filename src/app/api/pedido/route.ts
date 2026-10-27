@@ -13,6 +13,7 @@ import {
   PAYMENT_LABELS,
   SHIPPING_LABELS,
   toWhatsappNumber,
+  type CartChange,
   type Order,
   type OrderLine,
   type PaymentMethod,
@@ -20,7 +21,7 @@ import {
 } from "@/lib/order";
 
 type OrderRequest = {
-  items?: { id?: unknown; quantity?: unknown }[];
+  items?: { id?: unknown; quantity?: unknown; price?: unknown }[];
   customer?: Record<string, unknown>;
   shipping?: unknown;
   payment?: unknown;
@@ -85,14 +86,17 @@ export async function POST(request: Request) {
 
   // Los precios se toman del almacén, no de lo que manda el navegador.
   // Si el mismo producto llega dos veces, se suman las cantidades.
-  const requested: { id: string; quantity: number }[] = [];
+  const requested: { id: string; quantity: number; price: number | null }[] = [];
   for (const item of body.items ?? []) {
     const quantity = Number(item.quantity);
     if (typeof item.id !== "string") continue;
     if (!Number.isInteger(quantity) || quantity < 1) continue;
     const found = requested.find((r) => r.id === item.id);
     if (found) found.quantity += quantity;
-    else requested.push({ id: item.id, quantity });
+    else {
+      const price = typeof item.price === "number" ? item.price : null;
+      requested.push({ id: item.id, quantity, price });
+    }
   }
   if (requested.some((item) => item.quantity > MAX_QUANTITY)) {
     return bad(
@@ -100,6 +104,25 @@ export async function POST(request: Request) {
     );
   }
   const products = await getProductsByIds(requested.map((item) => item.id));
+
+  // Si algo se agotó o cambió de precio mientras estaba en el carrito, se
+  // frena acá y el checkout le muestra al cliente qué cambió antes de cobrar.
+  const changes: CartChange[] = requested.flatMap((item): CartChange[] => {
+    const product = products.find((p) => p.id === item.id);
+    if (!product || product.inStock === false) {
+      return [{ id: item.id, kind: "agotado" }];
+    }
+    if (item.price !== null && item.price !== product.price) {
+      return [{ id: item.id, kind: "precio", price: product.price }];
+    }
+    return [];
+  });
+  if (changes.length > 0) {
+    return Response.json(
+      { error: "Algunos productos cambiaron.", changes },
+      { status: 409 },
+    );
+  }
   const lines: OrderLine[] = products.flatMap((product) => {
     if (product.inStock === false) return [];
     const quantity = requested.find((item) => item.id === product.id)!.quantity;

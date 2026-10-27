@@ -238,6 +238,7 @@ type Draft = {
   alt: string;
   position: string;
   features: { label: string; value: string }[];
+  description: string;
   active: boolean;
 };
 
@@ -253,6 +254,7 @@ function emptyDraft(nextPosition: number): Draft {
     alt: "",
     position: String(nextPosition),
     features: [],
+    description: "",
     active: true,
   };
 }
@@ -269,6 +271,7 @@ function rowToDraft(row: ProductRow): Draft {
     alt: row.alt,
     position: String(row.position),
     features: row.caracteristicas ?? [],
+    description: row.descripcion ?? "",
     active: row.active,
   };
 }
@@ -644,6 +647,7 @@ function ProductForm({
       caracteristicas: draft.features
         .map((feature) => ({ label: feature.label.trim(), value: feature.value.trim() }))
         .filter((feature) => feature.label && feature.value),
+      descripcion: draft.description.trim(),
     });
     setSaving(false);
     if (saveError) {
@@ -735,6 +739,19 @@ function ProductForm({
             className={inputClass}
           />
         </label>
+        <label className="block space-y-1.5 text-sm sm:col-span-2">
+          <span>
+            Descripción del producto (se ve en su página: tamaño, cuántas horas
+            dura, aroma, cómo se recarga)
+          </span>
+          <textarea
+            rows={4}
+            maxLength={2000}
+            value={draft.description}
+            onChange={(event) => update("description", event.target.value)}
+            className={inputClass}
+          />
+        </label>
         <FeaturesEditor
           features={draft.features}
           onChange={(features) => update("features", features)}
@@ -787,7 +804,7 @@ function FeaturesEditor({
   return (
     <fieldset className="space-y-2 text-sm sm:col-span-2">
       <legend className="mb-1.5">
-        Características (aroma, tamaño, peso, cera, mecha…). Salen en el comprobante del pedido.
+        Características (aroma, tamaño, peso, duración…). Salen en la página del producto y en el comprobante.
       </legend>
       {features.map((feature, index) => (
         <div key={index} className="flex gap-2">

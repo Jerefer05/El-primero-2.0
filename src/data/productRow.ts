@@ -3,7 +3,10 @@
 import { formatPrice, type Product } from "@/data/products";
 
 export const PRODUCT_COLUMNS =
-  "id, name, price, image, alt, category, in_stock, stock, position, caracteristicas, active, featured";
+  "id, name, price, image, alt, category, in_stock, stock, position, caracteristicas, active, featured, descripcion";
+
+// Las mismas sin la descripción, por si la base todavía no tiene esa columna.
+export const LEGACY_PRODUCT_COLUMNS = PRODUCT_COLUMNS.replace(", descripcion", "");
 
 export type ProductRow = {
   id: string;
@@ -18,6 +21,7 @@ export type ProductRow = {
   caracteristicas: { label: string; value: string }[];
   active: boolean; // false = pausado, no se muestra en la tienda
   featured: boolean; // true = aparece primero, con cartel de "Destacado"
+  descripcion?: string;
 };
 
 export function rowToProduct(row: ProductRow): Product {
@@ -32,5 +36,6 @@ export function rowToProduct(row: ProductRow): Product {
     inStock: row.in_stock && row.stock !== 0,
     features: row.caracteristicas ?? [],
     featured: row.featured,
+    description: row.descripcion ?? "",
   };
 }

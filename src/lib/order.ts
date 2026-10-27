@@ -27,6 +27,11 @@ export type OrderCustomer = {
   notes: string;
 };
 
+// Lo que cambió en el almacén desde que el cliente armó el carrito.
+export type CartChange =
+  | { id: string; kind: "agotado" }
+  | { id: string; kind: "precio"; price: number };
+
 export type OrderLine = {
   id: string;
   name: string;
