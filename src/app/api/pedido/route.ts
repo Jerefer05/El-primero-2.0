@@ -3,7 +3,8 @@ import { STORE } from "@/data/config";
 import { formatPrice } from "@/data/products";
 import { getProductsByIds, getSettings } from "@/data/store";
 import { checkCoupon } from "@/data/coupons";
-import { createPublicClient } from "@/lib/supabase";
+import { createPublicClient, createSecretClient } from "@/lib/supabase";
+import { allowRequest, ORDER_LIMIT } from "@/lib/rateLimit";
 import {
   computeTotals,
   isValidEmail,
@@ -128,6 +129,18 @@ export async function POST(request: Request) {
     if (!zone) return bad("Elegí la zona de envío.");
   }
 
+  // Se cuentan solo los pedidos completos, para no frenar a quien se
+  // equivocó en un dato y lo corrige.
+  if (!(await allowRequest(request, ORDER_LIMIT))) {
+    return Response.json(
+      {
+        error:
+          "Recibimos varios pedidos seguidos desde tu conexión. Esperá un rato o escribinos por WhatsApp y lo terminamos por ahí.",
+      },
+      { status: 429 },
+    );
+  }
+
   const order: Order = {
     number: orderNumber(),
     createdAt: new Date().toISOString(),
@@ -157,10 +170,31 @@ export async function POST(request: Request) {
   return Response.json({ order });
 }
 
-// Lo guarda para verlo y cambiarle el estado desde el almacén.
+// Lo guarda para verlo y cambiarle el estado desde el almacén. Con la clave
+// secreta configurada, solo este servidor puede guardar pedidos: nadie puede
+// cargar uno salteándose la web.
 async function saveOrder(order: Order) {
+  const supabase = createSecretClient() ?? createPublicClient();
+  // El número es fecha + 4 cifras al azar: si justo se repite, se saca otro.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const { error } = await supabase.from("orders").insert(orderRow(order));
+    if (!error) return;
+    if (error.code === "23505" && attempt < 3) {
+      order.number = orderNumber();
+      continue;
+    }
+    // El pedido igual se confirma: el cliente tiene su comprobante y el aviso por Telegram.
+    console.error(
+      `No se pudo guardar el pedido ${order.number}:`,
+      error.message,
+    );
+    return;
+  }
+}
+
+function orderRow(order: Order) {
   const { customer } = order;
-  const { error } = await createPublicClient().from("orders").insert({
+  return {
     number: order.number,
     created_at: order.createdAt,
     customer_name: customer.name,
@@ -176,14 +210,7 @@ async function saveOrder(order: Order) {
     lines: order.lines,
     totals: order.totals,
     total: order.totals.total,
-  });
-  if (error) {
-    // El pedido igual se confirma: el cliente tiene su comprobante y el aviso por Telegram.
-    console.error(
-      `No se pudo guardar el pedido ${order.number}:`,
-      error.message,
-    );
-  }
+  };
 }
 
 function escapeHtml(value: string) {
