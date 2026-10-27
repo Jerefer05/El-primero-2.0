@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import AddToCartButton from "@/components/AddToCartButton";
 import { getProduct, getProducts } from "@/data/store";
+import { SITE_URL } from "@/lib/site";
 
 // Una página por producto, armada al publicar. Las que se agregan después
 // desde el almacén se arman la primera vez que alguien las visita.
@@ -24,6 +25,7 @@ export async function generateMetadata({
   return {
     title: `${product.name} | Tesoria`,
     description,
+    alternates: { canonical: `/producto/${product.id}` },
     openGraph: {
       title: `${product.name} | Tesoria`,
       description,
@@ -46,8 +48,33 @@ export default async function ProductPage({ params }: PageProps<"/producto/[id]"
     .map((text) => text.trim())
     .filter(Boolean);
 
+  // Ficha para que Google muestre precio y disponibilidad en los resultados.
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    image: new URL(product.image, SITE_URL).toString(),
+    description: product.description || product.alt,
+    brand: { "@type": "Brand", name: "Tesoria" },
+    offers: {
+      "@type": "Offer",
+      price: product.price,
+      priceCurrency: "ARS",
+      availability: soldOut
+        ? "https://schema.org/OutOfStock"
+        : "https://schema.org/InStock",
+      url: `${SITE_URL}/producto/${product.id}`,
+    },
+  };
+
   return (
     <section className="mx-auto max-w-5xl px-5 py-12 md:px-8 md:py-20">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
+        }}
+      />
       <Link
         href="/#catalogo"
         className="text-xs tracking-[0.18em] text-[#2E2E2E]/75 uppercase hover:text-[#2E2E2E]"

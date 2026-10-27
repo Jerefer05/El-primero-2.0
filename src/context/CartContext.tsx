@@ -11,6 +11,7 @@ import {
 import type { Product } from "@/data/products";
 import { formatPrice } from "@/data/products";
 import { MAX_QUANTITY, type CartChange } from "@/lib/order";
+import { trackAddToCart } from "@/lib/track";
 
 export type CartItem = Product & { quantity: number };
 
@@ -83,6 +84,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setLastAdded(null);
       },
       addItem(product) {
+        trackAddToCart(product);
         const existing = items.find((item) => item.id === product.id);
         setLastAdded({
           ...product,
