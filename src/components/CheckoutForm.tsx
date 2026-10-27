@@ -85,7 +85,7 @@ function describeChanges(changes: CartChange[], items: { id: string; name: strin
   const name = (id: string) => items.find((item) => item.id === id)?.name ?? "Un producto";
   const lines = changes.map((change) =>
     change.kind === "agotado"
-      ? `${name(change.id)} se agotó y lo sacamos del carrito.`
+      ? `${name(change.id)} se agotó, así que salió del carrito.`
       : `${name(change.id)} ahora cuesta ${formatPrice(change.price)}.`,
   );
   return `${lines.join(" ")} Revisá el total y confirmá de nuevo.`;
