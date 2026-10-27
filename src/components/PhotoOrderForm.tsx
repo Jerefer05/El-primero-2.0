@@ -3,13 +3,6 @@
 import { FormEvent, useState } from "react";
 import { STORE, whatsappLink } from "@/data/config";
 import { useSiteSettings } from "@/context/SiteSettingsContext";
-import PhotoUploader, { type UploadedPhotos } from "@/components/PhotoUploader";
-import { createPublicClient } from "@/lib/supabase";
-import {
-  manifestPath,
-  PHOTO_ORDERS_BUCKET,
-  type PhotoOrderManifest,
-} from "@/lib/photoOrder";
 
 // Tamaños disponibles según el tipo de producto
 const sizesByType: Record<string, string[]> = {
@@ -21,82 +14,29 @@ const productTypes = Object.keys(sizesByType);
 
 export default function PhotoOrderForm() {
   const { whatsappNumber } = useSiteSettings();
-  const [photos, setPhotos] = useState<UploadedPhotos>({
-    files: [],
-    uploading: 0,
-  });
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState("");
+  const [fileName, setFileName] = useState("");
   const [tipo, setTipo] = useState("");
   const [tamanio, setTamanio] = useState("");
 
   const availableSizes = sizesByType[tipo] ?? [];
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (sending) return;
-    if (photos.uploading > 0) {
-      setError("Esperá a que terminen de subirse las fotos.");
-      return;
-    }
-    if (photos.files.length === 0) {
-      setError("Subí al menos una foto para imprimir.");
-      return;
-    }
-    setError("");
     const data = new FormData(event.currentTarget);
-    const field = (name: string) => String(data.get(name) ?? "").trim();
-
-    // La pestaña de WhatsApp se abre ya, antes de esperar a guardar el pedido:
-    // si se abre después, el navegador del celular la bloquea.
-    const whatsappTab = window.open("", "_blank");
-
-    setSending(true);
-    const orderId = crypto.randomUUID();
-    const manifest: PhotoOrderManifest = {
-      createdAt: new Date().toISOString(),
-      customerName: field("nombre").slice(0, 80),
-      product: field("tipo"),
-      size: field("tamanio"),
-      quantity: field("cantidad"),
-      photos: photos.files,
-    };
-    const { error: saveError } = await createPublicClient()
-      .storage.from(PHOTO_ORDERS_BUCKET)
-      .upload(
-        manifestPath(orderId),
-        new Blob([JSON.stringify(manifest)], { type: "application/json" }),
-        { contentType: "application/json", upsert: false },
-      );
-    setSending(false);
-    if (saveError) {
-      whatsappTab?.close();
-      console.error("No se pudo guardar el pedido de fotos:", saveError.message);
-      setError("No pudimos guardar tus fotos. Probá de nuevo en un momento.");
-      return;
-    }
-
-    const count = photos.files.length;
     const message = [
       `¡Hola ${STORE.name}! Quiero hacer un pedido con foto:`,
       "",
-      `• Nombre: ${field("nombre")}`,
-      `• Email: ${field("email")}`,
-      `• Teléfono: ${field("telefono")}`,
-      `• Producto: ${field("tipo")}`,
-      `• Tamaño: ${field("tamanio")}`,
-      `• Cantidad: ${field("cantidad")}`,
-      "",
-      `📷 ${count === 1 ? "Mi foto" : `Mis ${count} fotos`} en calidad original:`,
-      `${window.location.origin}/fotos/${orderId}`,
+      `• Nombre: ${data.get("nombre")}`,
+      `• Email: ${data.get("email")}`,
+      `• Teléfono: ${data.get("telefono")}`,
+      `• Producto: ${data.get("tipo")}`,
+      `• Tamaño: ${data.get("tamanio")}`,
+      `• Cantidad: ${data.get("cantidad")}`,
+      fileName
+        ? `• Foto de referencia: ${fileName} (te la envío por este chat)`
+        : "• Foto de referencia: te la envío por este chat",
     ].join("\n");
-    const url = whatsappLink(message, whatsappNumber);
-    if (whatsappTab) {
-      whatsappTab.opener = null;
-      whatsappTab.location.href = url;
-    } else {
-      window.location.href = url;
-    }
+    window.open(whatsappLink(message, whatsappNumber), "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -211,28 +151,37 @@ export default function PhotoOrderForm() {
         />
       </div>
 
-      <PhotoUploader photos={photos} onChange={setPhotos} />
-
-      {error && (
-        <p role="alert" className="text-center text-sm text-[#9a3b2e]">
-          {error}
-        </p>
-      )}
+      <div className="space-y-2">
+        <p className="text-sm text-[#2E2E2E]">Subir imagen de referencia</p>
+        <label
+          htmlFor="referencia"
+          className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-[#2E2E2E]/30 bg-white/45 px-4 py-8 text-center transition hover:border-[#2E2E2E]/50"
+        >
+          <span className="text-sm text-[#2E2E2E]/70">
+            {fileName || "Arrastrá una imagen o hacé clic para elegirla"}
+          </span>
+          <input
+            id="referencia"
+            name="referencia"
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            onChange={(event) => {
+              setFileName(event.target.files?.[0]?.name ?? "");
+            }}
+          />
+        </label>
+      </div>
 
       <button
         type="submit"
-        disabled={photos.uploading > 0 || sending}
-        className="disabled:cursor-wait disabled:opacity-60 w-full rounded-full border border-[#6E6353] bg-[#6E6353] px-6 py-3 text-sm tracking-[0.16em] text-[#f4eee6] uppercase transition hover:bg-transparent hover:text-[#6E6353]"
+        className="w-full rounded-full border border-[#6E6353] bg-[#6E6353] px-6 py-3 text-sm tracking-[0.16em] text-[#f4eee6] uppercase transition hover:bg-transparent hover:text-[#6E6353]"
       >
-        {photos.uploading > 0
-          ? "Subiendo fotos…"
-          : sending
-            ? "Preparando el link…"
-            : "Enviar pedido por WhatsApp"}
+        Enviar pedido por WhatsApp
       </button>
       <p className="text-center text-xs text-[#2E2E2E]/65">
-        Se abre WhatsApp con tu pedido armado y un link para descargar tus
-        fotos en calidad original. No hace falta adjuntarlas.
+        Se abre WhatsApp con tu pedido armado. Adjuntá ahí la foto que querés
+        imprimir.
       </p>
     </form>
   );
