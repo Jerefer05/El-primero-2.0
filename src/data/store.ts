@@ -1,7 +1,12 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { createPublicClient } from "@/lib/supabase";
 import { featuredProducts, type Product } from "@/data/products";
-import { PRODUCT_COLUMNS, rowToProduct, type ProductRow } from "@/data/productRow";
+import {
+  LEGACY_PRODUCT_COLUMNS,
+  PRODUCT_COLUMNS,
+  rowToProduct,
+  type ProductRow,
+} from "@/data/productRow";
 import type { ShippingZone } from "@/lib/order";
 import {
   DEFAULT_SETTINGS,
@@ -21,20 +26,30 @@ export async function getProducts(): Promise<Product[]> {
   cacheTag(PRODUCTS_TAG);
   cacheLife("hours");
 
-  const { data, error } = await createPublicClient()
-    .from("products")
-    .select(PRODUCT_COLUMNS)
-    .eq("active", true)
-    .order("featured", { ascending: false })
-    .order("position")
-    .order("name");
+  const query = (columns: string) =>
+    createPublicClient()
+      .from("products")
+      .select(columns)
+      .eq("active", true)
+      .order("featured", { ascending: false })
+      .order("position")
+      .order("name");
+
+  let { data, error } = await query(PRODUCT_COLUMNS);
+  // Columna nueva que todavía no se creó: se lee sin descripción.
+  if (error?.code === "42703") ({ data, error } = await query(LEGACY_PRODUCT_COLUMNS));
 
   if (error || !data) {
     // Si la base no responde, mostramos el catálogo de respaldo
     console.error("No se pudo leer el almacén:", error?.message);
     return featuredProducts;
   }
-  return (data as ProductRow[]).map(rowToProduct);
+  return (data as unknown as ProductRow[]).map(rowToProduct);
+}
+
+export async function getProduct(id: string): Promise<Product | null> {
+  const products = await getProducts();
+  return products.find((product) => product.id === id) ?? null;
 }
 
 // Para el servidor (por ejemplo, recalcular precios de un pedido).

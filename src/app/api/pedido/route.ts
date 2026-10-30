@@ -3,7 +3,8 @@ import { STORE } from "@/data/config";
 import { formatPrice } from "@/data/products";
 import { getProductsByIds, getSettings } from "@/data/store";
 import { checkCoupon } from "@/data/coupons";
-import { createPublicClient } from "@/lib/supabase";
+import { createPublicClient, createSecretClient } from "@/lib/supabase";
+import { allowRequest, ORDER_LIMIT } from "@/lib/rateLimit";
 import {
   computeTotals,
   isValidEmail,
@@ -12,6 +13,7 @@ import {
   PAYMENT_LABELS,
   SHIPPING_LABELS,
   toWhatsappNumber,
+  type CartChange,
   type Order,
   type OrderLine,
   type PaymentMethod,
@@ -19,7 +21,7 @@ import {
 } from "@/lib/order";
 
 type OrderRequest = {
-  items?: { id?: unknown; quantity?: unknown }[];
+  items?: { id?: unknown; quantity?: unknown; price?: unknown }[];
   customer?: Record<string, unknown>;
   shipping?: unknown;
   payment?: unknown;
@@ -84,14 +86,17 @@ export async function POST(request: Request) {
 
   // Los precios se toman del almacén, no de lo que manda el navegador.
   // Si el mismo producto llega dos veces, se suman las cantidades.
-  const requested: { id: string; quantity: number }[] = [];
+  const requested: { id: string; quantity: number; price: number | null }[] = [];
   for (const item of body.items ?? []) {
     const quantity = Number(item.quantity);
     if (typeof item.id !== "string") continue;
     if (!Number.isInteger(quantity) || quantity < 1) continue;
     const found = requested.find((r) => r.id === item.id);
     if (found) found.quantity += quantity;
-    else requested.push({ id: item.id, quantity });
+    else {
+      const price = typeof item.price === "number" ? item.price : null;
+      requested.push({ id: item.id, quantity, price });
+    }
   }
   if (requested.some((item) => item.quantity > MAX_QUANTITY)) {
     return bad(
@@ -99,6 +104,25 @@ export async function POST(request: Request) {
     );
   }
   const products = await getProductsByIds(requested.map((item) => item.id));
+
+  // Si algo se agotó o cambió de precio mientras estaba en el carrito, se
+  // frena acá y el checkout le muestra al cliente qué cambió antes de cobrar.
+  const changes: CartChange[] = requested.flatMap((item): CartChange[] => {
+    const product = products.find((p) => p.id === item.id);
+    if (!product || product.inStock === false) {
+      return [{ id: item.id, kind: "agotado" }];
+    }
+    if (item.price !== null && item.price !== product.price) {
+      return [{ id: item.id, kind: "precio", price: product.price }];
+    }
+    return [];
+  });
+  if (changes.length > 0) {
+    return Response.json(
+      { error: "Algunos productos cambiaron.", changes },
+      { status: 409 },
+    );
+  }
   const lines: OrderLine[] = products.flatMap((product) => {
     if (product.inStock === false) return [];
     const quantity = requested.find((item) => item.id === product.id)!.quantity;
@@ -126,6 +150,18 @@ export async function POST(request: Request) {
   if (shipping === "envio" && settings.shippingZones.length > 0) {
     zone = settings.shippingZones.find((item) => item.id === body.zone) ?? null;
     if (!zone) return bad("Elegí la zona de envío.");
+  }
+
+  // Se cuentan solo los pedidos completos, para no frenar a quien se
+  // equivocó en un dato y lo corrige.
+  if (!(await allowRequest(request, ORDER_LIMIT))) {
+    return Response.json(
+      {
+        error:
+          "Recibimos varios pedidos seguidos desde tu conexión. Esperá un rato o escribinos por WhatsApp y lo terminamos por ahí.",
+      },
+      { status: 429 },
+    );
   }
 
   const order: Order = {
@@ -157,10 +193,31 @@ export async function POST(request: Request) {
   return Response.json({ order });
 }
 
-// Lo guarda para verlo y cambiarle el estado desde el almacén.
+// Lo guarda para verlo y cambiarle el estado desde el almacén. Con la clave
+// secreta configurada, solo este servidor puede guardar pedidos: nadie puede
+// cargar uno salteándose la web.
 async function saveOrder(order: Order) {
+  const supabase = createSecretClient() ?? createPublicClient();
+  // El número es fecha + 4 cifras al azar: si justo se repite, se saca otro.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const { error } = await supabase.from("orders").insert(orderRow(order));
+    if (!error) return;
+    if (error.code === "23505" && attempt < 3) {
+      order.number = orderNumber();
+      continue;
+    }
+    // El pedido igual se confirma: el cliente tiene su comprobante y el aviso por Telegram.
+    console.error(
+      `No se pudo guardar el pedido ${order.number}:`,
+      error.message,
+    );
+    return;
+  }
+}
+
+function orderRow(order: Order) {
   const { customer } = order;
-  const { error } = await createPublicClient().from("orders").insert({
+  return {
     number: order.number,
     created_at: order.createdAt,
     customer_name: customer.name,
@@ -176,14 +233,7 @@ async function saveOrder(order: Order) {
     lines: order.lines,
     totals: order.totals,
     total: order.totals.total,
-  });
-  if (error) {
-    // El pedido igual se confirma: el cliente tiene su comprobante y el aviso por Telegram.
-    console.error(
-      `No se pudo guardar el pedido ${order.number}:`,
-      error.message,
-    );
-  }
+  };
 }
 
 function escapeHtml(value: string) {

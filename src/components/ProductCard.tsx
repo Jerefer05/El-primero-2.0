@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import type { Product } from "@/data/products";
 import { useCart } from "@/context/CartContext";
 
@@ -17,7 +18,10 @@ export default function ProductCard({ product }: ProductCardProps) {
   return (
     <article className="group overflow-hidden rounded-2xl border border-white/50 bg-white/40 backdrop-blur-sm shadow-whisper transition duration-500 hover:-translate-y-1 hover:shadow-soft">
       {/* Fondo #d7cbbe: se ve mientras carga y si la imagen falla */}
-      <div className="relative aspect-[4/5] overflow-hidden bg-[#d7cbbe]">
+      <Link
+        href={`/producto/${product.id}`}
+        className="relative block aspect-[4/5] overflow-hidden bg-[#d7cbbe]"
+      >
         {product.featured && (
           <span className="absolute top-3 left-3 z-10 rounded-full bg-[#6E6353] px-3 py-1 text-[0.65rem] tracking-[0.16em] text-[#f4eee6] uppercase shadow-whisper">
             Destacado
@@ -33,10 +37,14 @@ export default function ProductCard({ product }: ProductCardProps) {
             onError={() => setImageFailed(true)}
           />
         )}
-      </div>
+      </Link>
       <div className="space-y-4 px-5 py-5">
         <div className="space-y-2">
-          <h3 className="font-serif text-xl text-[#2E2E2E]">{product.name}</h3>
+          <h3 className="font-serif text-xl text-[#2E2E2E]">
+            <Link href={`/producto/${product.id}`} className="hover:underline underline-offset-4">
+              {product.name}
+            </Link>
+          </h3>
           <p className="text-sm tracking-wide text-[#2E2E2E]/70">
             {product.priceLabel}
           </p>

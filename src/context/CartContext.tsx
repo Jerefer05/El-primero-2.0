@@ -9,7 +9,9 @@ import {
   type ReactNode,
 } from "react";
 import type { Product } from "@/data/products";
-import { MAX_QUANTITY } from "@/lib/order";
+import { formatPrice } from "@/data/products";
+import { MAX_QUANTITY, type CartChange } from "@/lib/order";
+import { trackAddToCart } from "@/lib/track";
 
 export type CartItem = Product & { quantity: number };
 
@@ -26,6 +28,7 @@ type CartContextValue = {
   decreaseItem: (id: string) => void;
   setQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
+  applyChanges: (changes: CartChange[]) => void;
   openCart: () => void;
   closeCart: () => void;
   toggleCart: () => void;
@@ -81,6 +84,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setLastAdded(null);
       },
       addItem(product) {
+        trackAddToCart(product);
         const existing = items.find((item) => item.id === product.id);
         setLastAdded({
           ...product,
@@ -136,6 +140,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
       },
       clearCart() {
         setItems([]);
+      },
+      applyChanges(changes) {
+        setItems((current) =>
+          current.flatMap((item) => {
+            const change = changes.find((c) => c.id === item.id);
+            if (!change) return [item];
+            if (change.kind === "agotado") return [];
+            return [
+              { ...item, price: change.price, priceLabel: formatPrice(change.price) },
+            ];
+          }),
+        );
       },
       openCart() {
         setIsOpen(true);
