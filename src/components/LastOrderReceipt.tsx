@@ -1,9 +1,32 @@
 "use client";
 
-import { useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import Link from "next/link";
 import OrderReceipt from "@/components/OrderReceipt";
 import { LAST_ORDER_KEY, type Order } from "@/lib/order";
+import { trackPurchase } from "@/lib/track";
+
+const TRACKED_KEY = "tesoria-ultimo-pedido-medido";
+
+// Avisa la venta a Analytics / Píxel una sola vez por pedido, aunque se
+// recargue el comprobante.
+function useTrackPurchase(order: Order | null) {
+  useEffect(() => {
+    if (!order) return;
+    try {
+      if (window.localStorage.getItem(TRACKED_KEY) === order.number) return;
+      window.localStorage.setItem(TRACKED_KEY, order.number);
+    } catch {
+      // sin almacenamiento, se mide igual
+    }
+    // Los scripts de medición cargan después de la página: se espera un poco.
+    const timer = setTimeout(
+      () => trackPurchase({ number: order.number, total: order.totals.total, lines: order.lines }),
+      1500,
+    );
+    return () => clearTimeout(timer);
+  }, [order]);
+}
 
 function readSavedOrder() {
   try {
@@ -31,6 +54,8 @@ export default function LastOrderReceipt() {
       return null;
     }
   }, [saved]);
+
+  useTrackPurchase(order);
 
   if (saved === null) return null;
 

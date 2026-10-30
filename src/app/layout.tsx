@@ -11,6 +11,8 @@ import DiscountPopup from "@/components/DiscountPopup";
 import AnnouncementBar from "@/components/AnnouncementBar";
 import { SiteSettingsProvider } from "@/context/SiteSettingsContext";
 import { getSettings } from "@/data/store";
+import Analytics from "@/components/Analytics";
+import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const prata = Prata({
@@ -28,9 +30,10 @@ const quicksand = Quicksand({
 });
 
 export const metadata: Metadata = {
-  title: "Tesoria | Velas artesanales y Home Deco",
+  metadataBase: new URL(SITE_URL),
+  title: "Tesoria | Velas recargables artesanales y Home Deco",
   description:
-    "Ilumina tu hogar sin límites con velas recargables artesanales. Home deco, arte nostálgico.",
+    "Velas recargables artesanales hechas a mano en Argentina: vasos de vidrio que se vuelven a llenar con nuestra cera de recarga. Home deco y polaroids.",
   openGraph: {
     title: "Tesoria | Velas artesanales y Home Deco",
     description:
@@ -73,6 +76,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <WhatsAppButton number={settings.whatsappNumber} />
           </CartProvider>
         </SiteSettingsProvider>
+        <Analytics />
       </body>
     </html>
   );

@@ -37,5 +37,17 @@ export function getBrowserClient() {
   return browserClient;
 }
 
+// Cliente con la clave secreta, solo para el servidor: guarda pedidos y lleva
+// la cuenta del límite contra bots. La clave se carga en Vercel como
+// SUPABASE_SECRET_KEY y nunca va en el código ni llega al navegador.
+// Devuelve null si todavía no está configurada.
+export function createSecretClient() {
+  const secret = process.env.SUPABASE_SECRET_KEY;
+  if (!secret) return null;
+  return createClient(SUPABASE_URL, secret, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
 // Fotos que suben los clientes en /pedidos, en calidad original
 export const ORDER_PHOTOS_BUCKET = "pedidos-fotos";

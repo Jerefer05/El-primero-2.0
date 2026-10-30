@@ -16,6 +16,7 @@ import {
   PHONE_PATTERN,
   SHIPPING_LABELS,
   type AppliedCoupon,
+  type CartChange,
   type Order,
   type PaymentMethod,
   type ShippingMethod,
@@ -80,9 +81,19 @@ function Choice<T extends string>({
   );
 }
 
+function describeChanges(changes: CartChange[], items: { id: string; name: string }[]) {
+  const name = (id: string) => items.find((item) => item.id === id)?.name ?? "Un producto";
+  const lines = changes.map((change) =>
+    change.kind === "agotado"
+      ? `${name(change.id)} se agotó, así que salió del carrito.`
+      : `${name(change.id)} ahora cuesta ${formatPrice(change.price)}.`,
+  );
+  return `${lines.join(" ")} Revisá el total y confirmá de nuevo.`;
+}
+
 export default function CheckoutForm() {
   const router = useRouter();
-  const { items, clearCart } = useCart();
+  const { items, clearCart, applyChanges } = useCart();
   const { shippingZones, freeShippingFrom } = useSiteSettings();
   const [zoneId, setZoneId] = useState("");
   const [shipping, setShipping] = useState<ShippingMethod>("envio");
@@ -142,7 +153,7 @@ export default function CheckoutForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: items.map(({ id, quantity }) => ({ id, quantity })),
+          items: items.map(({ id, quantity, price }) => ({ id, quantity, price })),
           customer: {
             name: field("name"),
             email: field("email"),
@@ -161,7 +172,14 @@ export default function CheckoutForm() {
       const result = (await response.json()) as {
         order?: Order;
         error?: string;
+        changes?: CartChange[];
       };
+      if (result.changes?.length) {
+        setError(describeChanges(result.changes, items));
+        applyChanges(result.changes);
+        setSending(false);
+        return;
+      }
       if (!response.ok || !result.order) {
         throw new Error(result.error ?? "No pudimos registrar el pedido.");
       }
