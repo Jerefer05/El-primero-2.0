@@ -48,3 +48,6 @@ export function createSecretClient() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
+
+// Fotos que suben los clientes en /pedidos, en calidad original
+export const ORDER_PHOTOS_BUCKET = "pedidos-fotos";
