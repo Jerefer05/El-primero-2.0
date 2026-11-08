@@ -58,8 +58,8 @@ export async function POST(request: Request) {
 
   const shipping = body.shipping as ShippingMethod;
   const payment = body.payment as PaymentMethod;
-  if (!(shipping in SHIPPING_LABELS)) return bad("Elegí un método de envío.");
-  if (!(payment in PAYMENT_LABELS)) return bad("Elegí una forma de pago.");
+  if (typeof shipping !== "string" || !Object.hasOwn(SHIPPING_LABELS, shipping)) return bad("Elegí un método de envío.");
+  if (typeof payment !== "string" || !Object.hasOwn(PAYMENT_LABELS, payment)) return bad("Elegí una forma de pago.");
 
   const customer = {
     name: text(body.customer?.name, 80),

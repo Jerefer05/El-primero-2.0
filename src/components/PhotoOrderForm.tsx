@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { STORE, whatsappLink } from "@/data/config";
 import { useSiteSettings } from "@/context/SiteSettingsContext";
 import { createPublicClient, ORDER_PHOTOS_BUCKET } from "@/lib/supabase";
+import { MAX_PHOTO_BYTES, MAX_PHOTO_MB, MAX_PHOTOS, PHOTO_ACCEPT, photoType } from "@/lib/photoRules";
 
 // Tamaños disponibles según el tipo de producto
 const sizesByType: Record<string, string[]> = {
@@ -13,8 +14,6 @@ const sizesByType: Record<string, string[]> = {
 
 const productTypes = Object.keys(sizesByType);
 
-const MAX_PHOTOS = 100;
-const MAX_PHOTO_MB = 30;
 const PARALLEL_UPLOADS = 3;
 
 type Photo = { key: string; file: File; preview: string };
@@ -23,19 +22,6 @@ type Status =
   | { step: "editing" }
   | { step: "uploading"; done: number; total: number }
   | { step: "ready"; whatsapp: string; photosLink: string; total: number };
-
-// Nombre de archivo seguro para guardar, manteniendo el orden en que se eligieron
-function storageName(file: File, index: number) {
-  const dot = file.name.lastIndexOf(".");
-  const extension = dot > 0 ? file.name.slice(dot + 1).toLowerCase() : "jpg";
-  const base = (dot > 0 ? file.name.slice(0, dot) : file.name)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9_-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
-  return `${String(index + 1).padStart(3, "0")}-${base || "foto"}.${extension}`;
-}
 
 export default function PhotoOrderForm() {
   const { whatsappNumber } = useSiteSettings();
@@ -64,11 +50,11 @@ export default function PhotoOrderForm() {
     if (!list) return;
     setError("");
     const incoming = Array.from(list);
-    const images = incoming.filter((file) => file.type.startsWith("image/") || /\.(heic|heif)$/i.test(file.name));
-    const tooBig = images.filter((file) => file.size > MAX_PHOTO_MB * 1024 * 1024);
-    const accepted = images.filter((file) => file.size <= MAX_PHOTO_MB * 1024 * 1024);
+    const images = incoming.filter((file) => photoType(file.name, file.type) !== null);
+    const tooBig = images.filter((file) => file.size > MAX_PHOTO_BYTES);
+    const accepted = images.filter((file) => file.size <= MAX_PHOTO_BYTES);
     const notes: string[] = [];
-    if (images.length < incoming.length) notes.push("Algunos archivos no eran fotos y no se agregaron.");
+    if (images.length < incoming.length) notes.push("Algunos archivos no eran fotos JPG, PNG, WebP o HEIC y no se agregaron.");
     if (tooBig.length) notes.push(`${tooBig.length} foto(s) pesan más de ${MAX_PHOTO_MB} MB y no se agregaron.`);
 
     setPhotos((current) => {
@@ -107,24 +93,55 @@ export default function PhotoOrderForm() {
     }
     setError("");
     const data = new FormData(event.currentTarget);
-    const orderId = crypto.randomUUID();
-    const supabase = createPublicClient();
     const total = photos.length;
     let done = 0;
     let failed = 0;
     setStatus({ step: "uploading", done, total });
 
+    // Primero el servidor revisa las fotos y da un permiso de subida por cada una
+    let orderId = "";
+    let uploads: { path: string; token: string; type: string }[] = [];
+    try {
+      const response = await fetch("/api/fotos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          photos: photos.map((photo) => ({
+            name: photo.file.name,
+            type: photo.file.type,
+            size: photo.file.size,
+          })),
+        }),
+      });
+      const result = (await response.json()) as {
+        orderId?: string;
+        uploads?: typeof uploads;
+        error?: string;
+      };
+      if (!response.ok || !result.orderId || !result.uploads) {
+        setStatus({ step: "editing" });
+        setError(result.error ?? "No se pudieron subir las fotos. Probá de nuevo.");
+        return;
+      }
+      orderId = result.orderId;
+      uploads = result.uploads;
+    } catch {
+      setStatus({ step: "editing" });
+      setError("No se pudieron subir las fotos. Revisá tu conexión y probá de nuevo.");
+      return;
+    }
+
+    const supabase = createPublicClient();
     // Sube las fotos de a varias a la vez, tal cual vienen (sin comprimir)
-    const queue = photos.map((photo, index) => ({ photo, index }));
+    const queue = photos.map((photo, index) => ({ photo, upload: uploads[index] }));
     async function worker() {
       for (let next = queue.shift(); next; next = queue.shift()) {
-        const path = `${orderId}/${storageName(next.photo.file, next.index)}`;
         let ok = false;
         for (let attempt = 0; attempt < 2 && !ok; attempt++) {
           const { error: uploadError } = await supabase.storage
             .from(ORDER_PHOTOS_BUCKET)
-            .upload(path, next.photo.file, {
-              contentType: next.photo.file.type || "image/jpeg",
+            .uploadToSignedUrl(next.upload.path, next.upload.token, next.photo.file, {
+              contentType: next.upload.type,
               cacheControl: "31536000",
             });
           ok = !uploadError;
@@ -330,7 +347,7 @@ export default function PhotoOrderForm() {
           <input
             id="referencia"
             type="file"
-            accept="image/*,.heic,.heif"
+            accept={PHOTO_ACCEPT}
             multiple
             disabled={uploading}
             className="sr-only"
