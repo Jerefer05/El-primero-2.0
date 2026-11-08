@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { createSecretClient } from "@/lib/supabase";
 
 // Límite de intentos por conexión, para que un bot no llene el almacén y el
@@ -10,6 +10,7 @@ export type Limit = { name: string; max: number; windowSeconds: number };
 
 export const ORDER_LIMIT: Limit = { name: "pedido", max: 5, windowSeconds: 3600 };
 export const COUPON_LIMIT: Limit = { name: "cupon", max: 20, windowSeconds: 600 };
+export const PHOTO_LIMIT: Limit = { name: "fotos", max: 6, windowSeconds: 3600 };
 
 export function clientIp(request: Request) {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -20,9 +21,13 @@ export function clientIp(request: Request) {
   );
 }
 
+// Si falta la clave secreta, la cuenta queda solo en memoria y se usa una sal
+// al azar de este servidor (nunca una palabra fija que se pueda adivinar).
+const PROCESS_SALT = randomBytes(32).toString("hex");
+
 // La IP no se guarda tal cual: solo una huella que no se puede revertir.
 function fingerprint(limit: Limit, ip: string) {
-  const salt = process.env.SUPABASE_SECRET_KEY ?? "tesoria";
+  const salt = process.env.SUPABASE_SECRET_KEY || PROCESS_SALT;
   return createHash("sha256")
     .update(`${limit.name}:${ip}:${salt}`)
     .digest("hex")

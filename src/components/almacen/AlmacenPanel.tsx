@@ -849,7 +849,7 @@ function PasswordForm({ onDone }: { onDone: (message: string) => void }) {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (password.length < 8) return setError("Usá al menos 8 caracteres.");
+    if (password.length < 12) return setError("Usá al menos 12 caracteres.");
     setSaving(true);
     const { error: updateError } = await supabase.auth.updateUser({ password });
     setSaving(false);
