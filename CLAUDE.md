@@ -1,3 +1,9 @@
+## 📌 Contexto del proyecto (leer primero)
+
+Antes de cualquier tarea, leé **`docs/CONTEXTO-TESORIA.md`**: quiénes somos, dónde está cada cuenta
+(GitHub, Vercel, Supabase, Telegram), qué se hizo, decisiones tomadas, pendientes, mensaje para el
+cliente y precio sugerido. Respondé siempre en español, simple y paso a paso.
+
 ## 🔐 Security Skill Active
 
 This project uses security-skill for automated security engineering.
